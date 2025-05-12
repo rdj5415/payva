@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # API Service
+  api:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/auditpulse
+      - JWT_SECRET=${JWT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+    depends_on:
+      - db
+    volumes:
+      - ../:/app
+    command: uvicorn auditpulse_mvp.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Dashboard Service
+  dashboard:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/auditpulse
+    depends_on:
+      - api
+    volumes:
+      - ../:/app
+    command: streamlit run auditpulse_mvp/dashboard/app.py --server.port 8501 --server.address 0.0.0.0
+
+  # Database Service
+  db:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=auditpulse
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Redis Service (for task queue)
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Worker Service
+  worker:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/auditpulse
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ../:/app
+    command: python -m auditpulse_mvp.worker
+
+volumes:
+  postgres_data:
+  redis_data: 
