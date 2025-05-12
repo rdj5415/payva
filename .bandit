@@ -1,0 +1,4 @@
+[bandit]
+target = auditpulse_mvp
+exclude = tests,venv,.venv,build,dist,migrations
+skips = B101,B311 

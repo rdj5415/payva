@@ -1,0 +1,217 @@
+/* AuditPulse Admin Dashboard Styles */
+
+/* Global Styles */
+:root {
+  --primary-color: #0d6efd;
+  --secondary-color: #6c757d;
+  --success-color: #198754;
+  --info-color: #0dcaf0;
+  --warning-color: #ffc107;
+  --danger-color: #dc3545;
+  --dark-color: #212529;
+  --light-color: #f8f9fa;
+  --border-color: #dee2e6;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 0.875rem;
+  background-color: #f5f5f5;
+}
+
+/* Sidebar Styles */
+.sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 100;
+  padding: 48px 0 0;
+  box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+  background-color: var(--dark-color);
+}
+
+#sidebar .nav-link {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 0.75rem 1rem;
+  border-radius: 0.25rem;
+  margin: 0.125rem 0.75rem;
+}
+
+#sidebar .nav-link:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+#sidebar .nav-link.active {
+  color: #fff;
+  background-color: var(--primary-color);
+}
+
+#sidebar .nav-link .bi {
+  margin-right: 0.5rem;
+}
+
+.sidebar-heading {
+  font-size: .75rem;
+  text-transform: uppercase;
+}
+
+/* Main Content Styles */
+main {
+  padding-top: 20px;
+}
+
+/* Card Styles */
+.card {
+  border-radius: 0.5rem;
+  border: none;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  margin-bottom: 1.5rem;
+}
+
+.card-header {
+  background-color: #fff;
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.75rem 1.25rem;
+}
+
+.card-footer {
+  background-color: rgba(0, 0, 0, 0.1);
+  border-top: none;
+  font-size: 0.8rem;
+  color: inherit;
+  padding: 0.5rem 1.25rem;
+  cursor: pointer;
+}
+
+.card-footer:hover {
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
+/* Progress Bar Styles */
+.progress {
+  height: 0.5rem;
+  border-radius: 1rem;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Table Styles */
+.table {
+  margin-bottom: 0;
+}
+
+.table th {
+  border-top: none;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--secondary-color);
+}
+
+.table td {
+  vertical-align: middle;
+  color: var(--dark-color);
+}
+
+/* Chart Container */
+canvas {
+  max-width: 100%;
+}
+
+/* Status Badges */
+.badge {
+  padding: 0.35em 0.65em;
+  font-weight: 500;
+}
+
+/* Custom Media Queries */
+@media (max-width: 767.98px) {
+  .sidebar {
+    top: 0;
+    padding-top: 0;
+  }
+}
+
+/* Modal Styles */
+.modal-content {
+  border-radius: 0.5rem;
+  border: none;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-footer {
+  border-top: 1px solid var(--border-color);
+}
+
+/* Button Styles */
+.btn {
+  border-radius: 0.25rem;
+  padding: 0.375rem 0.75rem;
+  font-weight: 500;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.76562rem;
+  border-radius: 0.2rem;
+}
+
+/* Form Controls */
+.form-control, .form-select {
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Utility Classes */
+.rounded-pill {
+  border-radius: 50rem !important;
+}
+
+/* Dashboard Cards */
+.card .card-title {
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.card .card-text {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+/* Animations */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+/* System Status Bar */
+#system-status {
+  font-size: 0.75rem;
+  padding: 0.35em 0.65em;
+  font-weight: 500;
+} 

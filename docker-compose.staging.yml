@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  db:
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-auditpulse_staging}
+    volumes:
+      - postgres_data_staging:/var/lib/postgresql/data/
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+
+  redis:
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data_staging:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+
+  worker:
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-auditpulse_staging}
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379/0
+      - ENVIRONMENT=staging
+      - SECRET_KEY=${SECRET_KEY}
+      - LOG_LEVEL=INFO
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+    restart: always
+
+  scheduler:
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-auditpulse_staging}
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379/0
+      - ENVIRONMENT=staging
+      - SECRET_KEY=${SECRET_KEY}
+      - LOG_LEVEL=INFO
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+    restart: always
+
+  api:
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-auditpulse_staging}
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - ENVIRONMENT=staging
+      - LOG_LEVEL=INFO
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://staging.auditpulse.example.com}
+      - PLAID_CLIENT_ID=${PLAID_CLIENT_ID}
+      - PLAID_SECRET=${PLAID_SECRET}
+      - PLAID_ENVIRONMENT=development
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - EMAIL_SENDER=${EMAIL_SENDER}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - SLACK_API_TOKEN=${SLACK_API_TOKEN}
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+    restart: always
+
+  # Monitoring with Prometheus and Grafana
+  prometheus:
+    image: prom/prometheus:v2.42.0
+    container_name: auditpulse-prometheus
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus_data_staging:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks:
+      - auditpulse-network
+    restart: always
+
+  grafana:
+    image: grafana/grafana:9.4.7
+    container_name: auditpulse-grafana
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data_staging:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    networks:
+      - auditpulse-network
+    restart: always
+
+  # Reverse proxy
+  nginx:
+    image: nginx:1.23-alpine
+    container_name: auditpulse-nginx
+    volumes:
+      - ./nginx/staging:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./static:/var/www/static
+      - ./frontend:/var/www/frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+      - prometheus
+      - grafana
+    networks:
+      - auditpulse-network
+    restart: always
+
+networks:
+  auditpulse-network:
+    driver: bridge
+
+volumes:
+  postgres_data_staging:
+  redis_data_staging:
+  prometheus_data_staging:
+  grafana_data_staging: 

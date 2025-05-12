@@ -1,0 +1,11 @@
+# Redirect all requests to index.html
+/* /index.html 200
+
+# API proxy
+/api/* https://api.auditpulse.com/api/:splat 200
+
+# Handle 404s
+/404 /index.html 404
+
+# Handle 500s
+/500 /index.html 500 
