@@ -23,6 +23,15 @@ import {
   Add as AddIcon,
 } from '@mui/icons-material';
 
+interface ModelData {
+  id: string;
+  name: string;
+  version: string;
+  status: string;
+  accuracy: number;
+  lastUpdated: string;
+}
+
 const mockModels = [
   {
     id: 1,
@@ -71,6 +80,11 @@ export const Models: React.FC = () => {
     // Implement model deployment logic
     console.log('Deploying model:', selectedModel);
     handleCloseDialog();
+  };
+
+  const handleModelAction = (model: ModelData, action: string) => {
+    // Implementation will be added later
+    console.log(`Action ${action} for model:`, model);
   };
 
   return (

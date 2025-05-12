@@ -11,7 +11,6 @@ import {
   Paper,
   MenuItem,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
 
 const validationSchema = yup.object({
   firstName: yup.string().required('First name is required'),
@@ -34,8 +33,6 @@ const roles = [
 ];
 
 export const Contact: React.FC = () => {
-  const theme = useTheme();
-
   const formik = useFormik({
     initialValues: {
       firstName: '',

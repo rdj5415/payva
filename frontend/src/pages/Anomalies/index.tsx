@@ -103,13 +103,22 @@ const columns: GridColDef[] = [
   },
 ];
 
+interface AnomalyData {
+  id: string;
+  type: string;
+  severity: string;
+  timestamp: string;
+  status: string;
+  details: Record<string, unknown>;
+}
+
 export const Anomalies: React.FC = () => {
   const [selectedAnomaly, setSelectedAnomaly] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleViewDetails = (anomaly: any) => {
-    setSelectedAnomaly(anomaly);
-    setIsDialogOpen(true);
+  const handleViewDetails = (anomaly: AnomalyData) => {
+    // Implementation will be added later
+    console.log('View details for anomaly:', anomaly);
   };
 
   const handleCloseDialog = () => {

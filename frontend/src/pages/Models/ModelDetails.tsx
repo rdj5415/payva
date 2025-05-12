@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Box,
+  Container,
   Typography,
-  Paper,
   Grid,
   Card,
   CardContent,
@@ -67,7 +67,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export const ModelDetails: React.FC = () => {
-  const [tabValue, setTabValue] = useState(0);
+  const [tabValue, setTabValue] = React.useState(0);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
