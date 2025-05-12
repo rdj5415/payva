@@ -22,17 +22,17 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    setUser: (state, action: PayloadAction<AuthState['user']>) => {
+    setUser: (state: AuthState, action: PayloadAction<AuthState['user']>) => {
       state.user = action.payload;
       state.isAuthenticated = !!action.payload;
     },
-    setLoading: (state, action: PayloadAction<boolean>) => {
+    setLoading: (state: AuthState, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
     },
-    setError: (state, action: PayloadAction<string | null>) => {
+    setError: (state: AuthState, action: PayloadAction<string | null>) => {
       state.error = action.payload;
     },
-    logout: (state) => {
+    logout: (state: AuthState) => {
       state.user = null;
       state.isAuthenticated = false;
       state.error = null;
