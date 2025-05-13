@@ -10,8 +10,7 @@ from typing import AsyncGenerator, Generator
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from unittest.mock import patch
 
 # Add parent directory to path for imports
@@ -24,8 +23,8 @@ TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 # Create async engine for tests
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=True)
-TestingSessionLocal = sessionmaker(
-    test_engine, class_=AsyncSession, expire_on_commit=False
+TestingSessionLocal = async_sessionmaker(
+    bind=test_engine, class_=AsyncSession, expire_on_commit=False
 )
 
 
