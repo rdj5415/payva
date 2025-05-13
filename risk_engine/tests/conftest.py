@@ -49,18 +49,18 @@ def event_loop() -> Generator:
 
 
 @pytest.fixture(scope="session")
-async def setup_database() -> None:
+async def setup_database() -> AsyncGenerator[None, None]:
     """Set up the test database.
     
     Returns:
-        None
+        AsyncGenerator: Yields None after setup, then cleans up after tests.
     """
     # Create all tables
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
     # Clean up after tests
-    yield
+    yield None
     
     # Drop all tables
     async with test_engine.begin() as conn:
