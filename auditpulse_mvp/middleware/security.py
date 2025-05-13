@@ -58,8 +58,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.admin_requests_limit = admin_requests_limit
         self.window_seconds = window_seconds
         self.exclude_paths = exclude_paths or ["/health", "/api/docs", "/api/redoc"]
-        self.requests: Dict[str, Any] = {}  # Dict to track requests: {ip: [(timestamp, path), ...]}
-        self.blocked_ips: Dict[str, Any] = {}  # Dict to track blocked IPs: {ip: unblock_timestamp}
+        self.requests: Dict[str, Any] = (
+            {}
+        )  # Dict to track requests: {ip: [(timestamp, path), ...]}
+        self.blocked_ips: Dict[str, Any] = (
+            {}
+        )  # Dict to track blocked IPs: {ip: unblock_timestamp}
         self.burst_limit = burst_limit
         self.block_duration_seconds = block_duration_seconds
         self.cleanup_counter = 0
