@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database service
+  db:
+    image: postgres:15-alpine
+    container_name: auditpulse-db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-auditpulse}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - auditpulse-network
+    ports:
+      - "5432:5432"
+
+  # Redis service for task queue and caching
+  redis:
+    image: redis:7-alpine
+    container_name: auditpulse-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - auditpulse-network
+    ports:
+      - "6379:6379"
+
+  # Celery worker for background tasks
+  worker:
+    build: .
+    container_name: auditpulse-worker
+    command: celery -A auditpulse_mvp.tasks.worker worker --loglevel=info
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-auditpulse}
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - SECRET_KEY=${SECRET_KEY:-devkey}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8000}
+    networks:
+      - auditpulse-network
+
+  # Celery beat for scheduled tasks
+  scheduler:
+    build: .
+    container_name: auditpulse-scheduler
+    command: celery -A auditpulse_mvp.tasks.worker beat --loglevel=info
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+      - worker
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-auditpulse}
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - SECRET_KEY=${SECRET_KEY:-devkey}
+    networks:
+      - auditpulse-network
+
+  # Main application service
+  api:
+    build: .
+    container_name: auditpulse-api
+    command: >
+      bash -c "python -m auditpulse_mvp.scripts.initialize_db && 
+              gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 auditpulse_mvp.main:app"
+    volumes:
+      - .:/app
+      - ./static:/app/static
+      - ./frontend:/app/frontend
+    ports:
+      - "${PORT:-8000}:8000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-auditpulse}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-devkey}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8000}
+      - PLAID_CLIENT_ID=${PLAID_CLIENT_ID}
+      - PLAID_SECRET=${PLAID_SECRET}
+      - PLAID_ENVIRONMENT=${PLAID_ENVIRONMENT:-sandbox}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - EMAIL_SENDER=${EMAIL_SENDER}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - SLACK_API_TOKEN=${SLACK_API_TOKEN}
+    networks:
+      - auditpulse-network
+    restart: always
+
+networks:
+  auditpulse-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data: 

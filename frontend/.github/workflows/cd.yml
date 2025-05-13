@@ -1,0 +1,225 @@
+name: AuditPulse CD
+
+on:
+  workflow_run:
+    workflows: ["AuditPulse CI"]
+    branches: [main, develop]
+    types:
+      - completed
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop' }}
+    environment: staging
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: develop
+    
+    - name: Install SSH Key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        known_hosts: ${{ secrets.KNOWN_HOSTS }}
+    
+    - name: Create .env file
+      run: |
+        cat > .env << EOF
+        POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+        POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+        POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+        DATABASE_URL=${{ secrets.DATABASE_URL }}
+        REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+        REDIS_URL=${{ secrets.REDIS_URL }}
+        SECRET_KEY=${{ secrets.SECRET_KEY }}
+        ENVIRONMENT=staging
+        CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}
+        PLAID_CLIENT_ID=${{ secrets.PLAID_CLIENT_ID }}
+        PLAID_SECRET=${{ secrets.PLAID_SECRET }}
+        PLAID_ENVIRONMENT=sandbox
+        SMTP_HOST=${{ secrets.SMTP_HOST }}
+        SMTP_PORT=${{ secrets.SMTP_PORT }}
+        SMTP_USER=${{ secrets.SMTP_USER }}
+        SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+        EMAIL_SENDER=${{ secrets.EMAIL_SENDER }}
+        TWILIO_ACCOUNT_SID=${{ secrets.TWILIO_ACCOUNT_SID }}
+        TWILIO_AUTH_TOKEN=${{ secrets.TWILIO_AUTH_TOKEN }}
+        TWILIO_PHONE_NUMBER=${{ secrets.TWILIO_PHONE_NUMBER }}
+        LOG_LEVEL=INFO
+        GF_SECURITY_ADMIN_USER=${{ secrets.GRAFANA_ADMIN_USER }}
+        GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+        EOF
+    
+    - name: Copy files to staging server
+      run: |
+        scp .env ${{ secrets.SSH_USER }}@${{ secrets.STAGING_HOST }}:${{ secrets.DEPLOY_PATH }}/.env
+        scp docker-compose.yml ${{ secrets.SSH_USER }}@${{ secrets.STAGING_HOST }}:${{ secrets.DEPLOY_PATH }}/docker-compose.yml
+        scp docker-compose.staging.yml ${{ secrets.SSH_USER }}@${{ secrets.STAGING_HOST }}:${{ secrets.DEPLOY_PATH }}/docker-compose.staging.yml
+        scp -r nginx/ ${{ secrets.SSH_USER }}@${{ secrets.STAGING_HOST }}:${{ secrets.DEPLOY_PATH }}/nginx/
+        scp -r monitoring/ ${{ secrets.SSH_USER }}@${{ secrets.STAGING_HOST }}:${{ secrets.DEPLOY_PATH }}/monitoring/
+    
+    - name: Deploy to Staging Server
+      run: |
+        ssh ${{ secrets.SSH_USER }}@${{ secrets.STAGING_HOST }} <<EOF
+          cd ${{ secrets.DEPLOY_PATH }}
+          docker-compose -f docker-compose.yml -f docker-compose.staging.yml pull
+          docker-compose -f docker-compose.yml -f docker-compose.staging.yml up -d
+          docker system prune -af --volumes
+        EOF
+    
+    - name: Verify Deployment
+      run: |
+        # Wait for app to start
+        sleep 30
+        curl -k https://${{ secrets.STAGING_DOMAIN }}/api/v1/health | grep "healthy"
+    
+    - name: Notify Staging Deployment
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+        text: "Deployment to *STAGING* environment ${{ job.status }}"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      if: env.SLACK_WEBHOOK_URL != ''
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    environment: production
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: main
+    
+    - name: Install SSH Key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        known_hosts: ${{ secrets.KNOWN_HOSTS }}
+    
+    - name: Create .env file
+      run: |
+        cat > .env << EOF
+        POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+        POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+        POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+        DATABASE_URL=${{ secrets.DATABASE_URL }}
+        REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+        REDIS_URL=${{ secrets.REDIS_URL }}
+        SECRET_KEY=${{ secrets.SECRET_KEY }}
+        ENVIRONMENT=production
+        CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}
+        PLAID_CLIENT_ID=${{ secrets.PLAID_CLIENT_ID }}
+        PLAID_SECRET=${{ secrets.PLAID_SECRET }}
+        PLAID_ENVIRONMENT=production
+        SMTP_HOST=${{ secrets.SMTP_HOST }}
+        SMTP_PORT=${{ secrets.SMTP_PORT }}
+        SMTP_USER=${{ secrets.SMTP_USER }}
+        SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+        EMAIL_SENDER=${{ secrets.EMAIL_SENDER }}
+        TWILIO_ACCOUNT_SID=${{ secrets.TWILIO_ACCOUNT_SID }}
+        TWILIO_AUTH_TOKEN=${{ secrets.TWILIO_AUTH_TOKEN }}
+        TWILIO_PHONE_NUMBER=${{ secrets.TWILIO_PHONE_NUMBER }}
+        LOG_LEVEL=WARNING
+        GF_SECURITY_ADMIN_USER=${{ secrets.GRAFANA_ADMIN_USER }}
+        GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+        EOF
+    
+    - name: Copy files to production server
+      run: |
+        scp .env ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }}:${{ secrets.DEPLOY_PATH }}/.env
+        scp docker-compose.yml ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }}:${{ secrets.DEPLOY_PATH }}/docker-compose.yml
+        scp docker-compose.prod.yml ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }}:${{ secrets.DEPLOY_PATH }}/docker-compose.prod.yml
+        scp -r nginx/ ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }}:${{ secrets.DEPLOY_PATH }}/nginx/
+        scp -r monitoring/ ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }}:${{ secrets.DEPLOY_PATH }}/monitoring/
+    
+    - name: Create backup directory
+      run: |
+        ssh ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} "mkdir -p ${{ secrets.DEPLOY_PATH }}/backups"
+    
+    - name: Backup database
+      run: |
+        ssh ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} <<EOF
+          cd ${{ secrets.DEPLOY_PATH }}
+          # Check if containers are already running
+          if docker-compose ps | grep -q db; then
+            docker-compose exec -T db pg_dump -U postgres auditpulse | gzip > backups/backup_before_deploy_$(date +%Y%m%d_%H%M%S).sql.gz
+          fi
+        EOF
+    
+    - name: Deploy to Production Server
+      run: |
+        ssh ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} <<EOF
+          cd ${{ secrets.DEPLOY_PATH }}
+          docker-compose -f docker-compose.yml -f docker-compose.prod.yml pull
+          docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+          # Only run prune if deployment is successful
+          if curl -s -k https://${{ secrets.PRODUCTION_DOMAIN }}/api/v1/health | grep -q "healthy"; then
+            docker system prune -f --filter "until=24h"
+          fi
+        EOF
+    
+    - name: Verify Deployment
+      run: |
+        # Wait for app to start
+        sleep 60
+        curl -k https://${{ secrets.PRODUCTION_DOMAIN }}/api/v1/health | grep "healthy"
+    
+    - name: Notify Production Deployment
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+        text: "🚀 Deployment to *PRODUCTION* environment ${{ job.status }} 🚀"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      if: env.SLACK_WEBHOOK_URL != ''
+  
+  rollback-production:
+    name: Rollback Production
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: failure()
+    environment: production
+    
+    steps:
+    - name: Install SSH Key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        known_hosts: ${{ secrets.KNOWN_HOSTS }}
+    
+    - name: Rollback to previous version
+      run: |
+        ssh ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_HOST }} <<EOF
+          cd ${{ secrets.DEPLOY_PATH }}
+          # Find latest backup
+          LATEST_BACKUP=\$(ls -t backups/backup_before_deploy_*.sql.gz | head -1)
+          if [ -n "\$LATEST_BACKUP" ]; then
+            echo "Rolling back to backup: \$LATEST_BACKUP"
+            # Restore database
+            gunzip -c \$LATEST_BACKUP | docker-compose exec -T db psql -U postgres auditpulse
+            # Restart services
+            docker-compose -f docker-compose.yml -f docker-compose.prod.yml restart api worker scheduler
+            echo "Rollback completed"
+          else
+            echo "No backup found for rollback"
+            exit 1
+          fi
+        EOF
+    
+    - name: Notify Rollback
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+        text: "⚠️ *PRODUCTION ROLLBACK* was ${{ job.status }} ⚠️"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      if: env.SLACK_WEBHOOK_URL != '' 

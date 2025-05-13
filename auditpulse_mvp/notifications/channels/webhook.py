@@ -56,7 +56,7 @@ class WebhookNotifier:
             if not headers:
                 headers = {
                     "Content-Type": "application/json",
-                    "User-Agent": "AuditPulse-Notifier/1.0",
+                    "User-Agent": "Payva-Notifier/1.0",
                 }
                 
             # Use default timeout if not specified

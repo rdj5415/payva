@@ -1,0 +1,238 @@
+version: '3.8'
+
+services:
+  db:
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-auditpulse_production}
+    volumes:
+      - postgres_data_production:/var/lib/postgresql/data/
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+        max-file: "10"
+
+  redis:
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data_production:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  worker:
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-auditpulse_production}
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379/0
+      - ENVIRONMENT=production
+      - SECRET_KEY=${SECRET_KEY}
+      - LOG_LEVEL=WARNING
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+        max-file: "10"
+
+  scheduler:
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-auditpulse_production}
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379/0
+      - ENVIRONMENT=production
+      - SECRET_KEY=${SECRET_KEY}
+      - LOG_LEVEL=WARNING
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  api:
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-auditpulse_production}
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - ENVIRONMENT=production
+      - LOG_LEVEL=WARNING
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://app.auditpulse.example.com}
+      - PLAID_CLIENT_ID=${PLAID_CLIENT_ID}
+      - PLAID_SECRET=${PLAID_SECRET}
+      - PLAID_ENVIRONMENT=production
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - EMAIL_SENDER=${EMAIL_SENDER}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - SLACK_API_TOKEN=${SLACK_API_TOKEN}
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+        max-file: "10"
+
+  # Monitoring with Prometheus and Grafana
+  prometheus:
+    image: prom/prometheus:v2.42.0
+    container_name: auditpulse-prometheus
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus_data_production:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=90d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks:
+      - auditpulse-network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  grafana:
+    image: grafana/grafana:9.4.7
+    container_name: auditpulse-grafana
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data_production:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=https://monitoring.auditpulse.example.com
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=${SMTP_HOST}
+      - GF_SMTP_USER=${SMTP_USER}
+      - GF_SMTP_PASSWORD=${SMTP_PASSWORD}
+      - GF_SMTP_FROM_ADDRESS=${EMAIL_SENDER}
+    ports:
+      - "3000:3000"
+    networks:
+      - auditpulse-network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  # Database backup service
+  db-backup:
+    image: postgres:15-alpine
+    container_name: auditpulse-db-backup
+    volumes:
+      - ./backups:/backups
+    environment:
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+    command: |
+      sh -c '
+        mkdir -p /backups
+        echo "0 2 * * * pg_dump -h db -U ${POSTGRES_USER} ${POSTGRES_DB:-auditpulse_production} | gzip > /backups/backup_$(date +\%Y\%m\%d_\%H\%M\%S).sql.gz" > /var/spool/cron/crontabs/root
+        echo "0 3 * * 0 find /backups -name \"backup_*.sql.gz\" -type f -mtime +30 -delete" >> /var/spool/cron/crontabs/root
+        crond -f -l 8
+      '
+    depends_on:
+      - db
+    networks:
+      - auditpulse-network
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # Reverse proxy with HTTPS
+  nginx:
+    image: nginx:1.23-alpine
+    container_name: auditpulse-nginx
+    volumes:
+      - ./nginx/production:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./static:/var/www/static
+      - ./frontend:/var/www/frontend
+      - ./nginx/logs:/var/log/nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+      - prometheus
+      - grafana
+    networks:
+      - auditpulse-network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+networks:
+  auditpulse-network:
+    driver: bridge
+
+volumes:
+  postgres_data_production:
+  redis_data_production:
+  prometheus_data_production:
+  grafana_data_production: 

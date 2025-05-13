@@ -1,0 +1,610 @@
+openapi: 3.0.0
+info:
+  title: AuditPulse API
+  description: |
+    API for AuditPulse - AI-powered financial anomaly detection and risk assessment platform.
+    This API provides endpoints for managing anomalies, risk configurations, and user settings.
+  version: 1.0.0
+  contact:
+    name: AuditPulse Support
+    email: support@auditpulse.ai
+    url: https://auditpulse.ai/support
+
+servers:
+  - url: https://api.auditpulse.ai/v1
+    description: Production server
+  - url: https://staging-api.auditpulse.ai/v1
+    description: Staging server
+  - url: http://localhost:8000/v1
+    description: Local development server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Error message
+        details:
+          type: object
+          description: Additional error details
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+        role:
+          type: string
+          enum: [admin, user]
+        tenant_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+          enum: [active, suspended, inactive]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: float
+        description:
+          type: string
+        merchant_name:
+          type: string
+        transaction_date:
+          type: string
+          format: date-time
+        category:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Anomaly:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        transaction_id:
+          type: string
+          format: uuid
+        score:
+          type: number
+          format: float
+        risk_level:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        anomaly_type:
+          type: string
+          enum: [AMOUNT, FREQUENCY, PATTERN, CATEGORY]
+        explanation:
+          type: string
+        is_resolved:
+          type: boolean
+        feedback_type:
+          type: string
+          enum: [TRUE_POSITIVE, FALSE_POSITIVE, FALSE_NEGATIVE]
+        resolution_notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        transaction:
+          $ref: '#/components/schemas/Transaction'
+
+    RiskConfig:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        weights:
+          type: object
+          properties:
+            rules_weight:
+              type: number
+              format: float
+            ml_weight:
+              type: number
+              format: float
+            gpt_weight:
+              type: number
+              format: float
+            low_threshold:
+              type: number
+              format: float
+            medium_threshold:
+              type: number
+              format: float
+            high_threshold:
+              type: number
+              format: float
+        gpt_confidence_threshold:
+          type: number
+          format: float
+        min_rule_score:
+          type: number
+          format: float
+        min_ml_score:
+          type: number
+          format: float
+        baseline_risk:
+          type: number
+          format: float
+        use_gpt:
+          type: boolean
+        use_ml:
+          type: boolean
+
+    NotificationConfig:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        email_enabled:
+          type: boolean
+        email_recipients:
+          type: array
+          items:
+            type: string
+            format: email
+        slack_enabled:
+          type: boolean
+        slack_webhook:
+          type: string
+        notify_high_risk:
+          type: boolean
+        notify_medium_risk:
+          type: boolean
+        notify_low_risk:
+          type: boolean
+        notification_frequency:
+          type: string
+          enum: [Immediate, Hourly, Daily]
+
+paths:
+  /auth/login:
+    post:
+      summary: Authenticate user
+      description: Login with email and password to get access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+              required:
+                - email
+                - password
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/register:
+    post:
+      summary: Register new user
+      description: Create a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                full_name:
+                  type: string
+              required:
+                - email
+                - password
+                - full_name
+      responses:
+        '200':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /anomalies:
+    get:
+      summary: List anomalies
+      description: Get list of anomalies with filtering
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: risk_levels
+          in: query
+          schema:
+            type: string
+            description: Comma-separated list of risk levels
+        - name: anomaly_types
+          in: query
+          schema:
+            type: string
+            description: Comma-separated list of anomaly types
+        - name: is_resolved
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of anomalies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Anomaly'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /anomalies/{anomaly_id}/resolve:
+    post:
+      summary: Resolve anomaly
+      description: Mark an anomaly as resolved with feedback
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: anomaly_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                feedback_type:
+                  type: string
+                  enum: [TRUE_POSITIVE, FALSE_POSITIVE, FALSE_NEGATIVE]
+                resolution_notes:
+                  type: string
+              required:
+                - feedback_type
+                - resolution_notes
+      responses:
+        '200':
+          description: Anomaly resolved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Anomaly'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Anomaly not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /risk/config:
+    get:
+      summary: Get risk configuration
+      description: Get risk configuration for a tenant
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Risk configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskConfig'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update risk configuration
+      description: Update risk configuration for a tenant
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskConfig'
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskConfig'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Invalid configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /notifications/config:
+    get:
+      summary: Get notification configuration
+      description: Get notification configuration for a tenant
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Notification configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationConfig'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update notification configuration
+      description: Update notification configuration for a tenant
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationConfig'
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationConfig'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Invalid configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /metrics:
+    get:
+      summary: Get dashboard metrics
+      description: Get key metrics for the dashboard
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dashboard metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_anomalies:
+                    type: integer
+                  anomaly_change:
+                    type: integer
+                  high_risk_count:
+                    type: integer
+                  high_risk_change:
+                    type: integer
+                  accuracy:
+                    type: number
+                    format: float
+                  accuracy_change:
+                    type: number
+                    format: float
+                  avg_response_time:
+                    type: number
+                    format: float
+                  response_time_change:
+                    type: number
+                    format: float
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /metrics/risk:
+    get:
+      summary: Get risk metrics
+      description: Get risk metrics and trends
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [1d, 7d, 30d]
+            default: 7d
+      responses:
+        '200':
+          description: Risk metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  risk_trends:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          type: string
+                          format: date-time
+                        high_risk:
+                          type: integer
+                        medium_risk:
+                          type: integer
+                        low_risk:
+                          type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error' 

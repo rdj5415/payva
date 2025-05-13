@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .risk-high {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .risk-medium {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .risk-low {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .details {
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .explanation {
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .footer {
+            font-size: 12px;
+            color: #6c757d;
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>New {{ risk_level }} Risk Anomaly Detected</h2>
+        <p>Anomaly Type: {{ anomaly_type }}</p>
+    </div>
+
+    <div class="details">
+        <h3>Transaction Details</h3>
+        <p><strong>Amount:</strong> ${{ "%.2f"|format(transaction.amount) }}</p>
+        <p><strong>Date:</strong> {{ transaction.transaction_date.strftime('%Y-%m-%d') }}</p>
+        <p><strong>Description:</strong> {{ transaction.description }}</p>
+        {% if transaction.merchant_name %}
+        <p><strong>Merchant:</strong> {{ transaction.merchant_name }}</p>
+        {% endif %}
+        {% if transaction.category %}
+        <p><strong>Category:</strong> {{ transaction.category }}</p>
+        {% endif %}
+    </div>
+
+    <div class="explanation">
+        <h3>AI Explanation</h3>
+        <p>{{ explanation }}</p>
+    </div>
+
+    <div class="footer">
+        <p>This is an automated message from AuditPulse AI. Please do not reply to this email.</p>
+        <p>To view more details or take action, please log in to your AuditPulse dashboard.</p>
+    </div>
+</body>
+</html> 
