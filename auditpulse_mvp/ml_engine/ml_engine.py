@@ -291,7 +291,7 @@ class MLEngine:
             )
 
     async def load_model(self, tenant_id: uuid.UUID) -> Dict[str, Any]:
-        """Load the latest model for a tenant.
+        """Load the ML model for a tenant.
 
         Args:
             tenant_id: The tenant ID.
@@ -313,7 +313,7 @@ class MLEngine:
                 )
 
         try:
-            model_data = joblib.load(model_path)
+            model_data: Dict[str, Any] = joblib.load(model_path)
             logger.info(f"Loaded model from {model_path}")
             return model_data
         except Exception as e:
@@ -405,7 +405,7 @@ class MLEngine:
             # We use 0.5 - X to flip the scale, then clamp to [0, 1]
             score = min(1.0, max(0.0, 0.5 - (decision_value / 2)))
 
-            return score
+            return float(score)  # Ensure we return a float
 
         except ValueError as e:
             logger.error(f"Value error during scoring: {e}")
@@ -436,9 +436,9 @@ class MLEngine:
             tenants = list(result.scalars().all())
             tenant_ids = [tenant.id for tenant in tenants]
 
-        results = {
-            "success": [],
-            "error": [],
+        results: Dict[str, Any] = {
+            "success": [],  # List to store successful training results
+            "error": [],    # List to store error results
             "total": len(tenant_ids),
         }
 
