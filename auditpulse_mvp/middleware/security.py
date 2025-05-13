@@ -17,6 +17,7 @@ from starlette.responses import JSONResponse
 import logging
 from datetime import datetime, timedelta
 import re
+import json
 
 # Configure logging
 logger = logging.getLogger("auditpulse.security")

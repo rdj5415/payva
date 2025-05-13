@@ -17,6 +17,7 @@ from auditpulse_mvp.api.middleware import (
     AuthMiddleware,
     AccessLogMiddleware,
     SecurityHeadersMiddleware,
+    setup_middlewares,
 )
 from auditpulse_mvp.database.session import engine, SessionLocal
 from auditpulse_mvp.utils.settings import settings

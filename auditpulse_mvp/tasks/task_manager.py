@@ -15,6 +15,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, extract
 
 from auditpulse_mvp.database.base import get_db_session
 from auditpulse_mvp.database.models import TaskLog, TaskStatus

@@ -32,7 +32,6 @@ def get_scheduler(settings: Settings = Depends(get_settings)) -> Union[AsyncIOSc
     Returns:
         The scheduler instance.
     """
-    global _scheduler
     if _scheduler is None:
         setup_scheduler(settings)
     return _scheduler
@@ -118,7 +117,6 @@ def register_task(
     Returns:
         The ID of the scheduled job.
     """
-    global _scheduler
     if _scheduler is None:
         settings = get_settings()
         setup_scheduler(settings)

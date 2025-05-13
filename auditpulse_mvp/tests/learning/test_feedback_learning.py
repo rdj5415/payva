@@ -23,6 +23,7 @@ from auditpulse_mvp.api.api_v1.endpoints.config import (
     SensitivityConfiguration,
     SensitivityLevel,
 )
+from fastapi import HTTPException
 
 
 # ---- Fixtures ----

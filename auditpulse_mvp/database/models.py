@@ -8,8 +8,11 @@ from uuid import UUID, uuid4
 from sqlalchemy import Column, DateTime, Enum as SQLEnum, ForeignKey, Integer, String, JSON, Float, Boolean
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
+from sqlalchemy.ext.declarative import declarative_base
 
 from auditpulse_mvp.database.base_class import Base
+
+Base = declarative_base()
 
 class TaskStatus(str, Enum):
     """Task status enumeration."""
@@ -163,8 +166,13 @@ class FinancialTransaction(Base):
     
     def __repr__(self):
         return f"<FinancialTransaction {self.name} ({self.id})>"
-        
-# Add relationships to User class
+
+class User(Base):
+    __tablename__ = "users"
+    // ... existing code ...
+
+# Add relationships after User class definition
 User.financial_institutions = relationship("FinancialInstitution", back_populates="user")
 User.financial_accounts = relationship("FinancialAccount", back_populates="user")
-User.financial_transactions = relationship("FinancialTransaction", back_populates="user") 
+User.financial_transactions = relationship("FinancialTransaction", back_populates="user")
+// ... existing code ... 
