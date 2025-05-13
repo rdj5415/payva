@@ -262,11 +262,14 @@ class RulesEngine:
         result = await self.evaluate(transaction)
         for flag in result["flags"]:
             if flag["rule_type"] == "amount_threshold":
-                return AnomalyType.LARGE_AMOUNT
+                enum_val = AnomalyType.LARGE_AMOUNT
+                return enum_val
             elif flag["rule_type"] == "unapproved_vendor":
-                return AnomalyType.UNAPPROVED_VENDOR
+                enum_val = AnomalyType.UNAPPROVED_VENDOR
+                return enum_val
             elif flag["rule_type"] == "statistical_outlier":
-                return AnomalyType.UNUSUAL_AMOUNT
+                enum_val = AnomalyType.UNUSUAL_AMOUNT
+                return enum_val
         return None
 
     async def score(self, transaction: Transaction) -> float:
