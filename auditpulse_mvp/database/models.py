@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Union, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -17,7 +17,7 @@ from sqlalchemy import (
     Boolean,
 )
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.ext.declarative import declarative_base
 
 from auditpulse_mvp.database.base_class import Base
@@ -37,74 +37,67 @@ class TaskStatus(str, Enum):
 
 
 class TaskLog(Base):
-    """Task execution log."""
+    """Background task execution log."""
 
     __tablename__ = "task_logs"
 
-    id = Column(Integer, primary_key=True, index=True)
-    task_id = Column(String, index=True, nullable=False)
-    task_name = Column(String, nullable=False)
-    status = Column(SQLEnum(TaskStatus), nullable=False)
-    priority = Column(Integer, nullable=False)
-    args = Column(JSON)
-    kwargs = Column(JSON)
-    result = Column(JSON)
-    error = Column(String)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    started_at = Column(DateTime)
-    completed_at = Column(DateTime)
-    retry_count = Column(Integer, default=0)
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    tenant_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(), ForeignKey("tenants.id"), nullable=True)
+    task_name: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
-    def __repr__(self):
-        return f"<TaskLog {self.task_id} ({self.status})>"
+    # Relationships
+    tenant: Mapped[Optional["Tenant"]] = relationship("Tenant", back_populates="task_logs")
+
+    def __repr__(self) -> str:
+        return f"<TaskLog {self.task_name} ({self.id})>"
 
 
 class ModelVersion(Base):
-    """Model version information."""
+    """ML model version information."""
 
     __tablename__ = "model_versions"
 
-    id = Column(UUID(), primary_key=True, default=uuid4)
-    model_type = Column(String, nullable=False, index=True)
-    version = Column(String, nullable=False)
-    model_data = Column(JSON, nullable=False)
-    metadata = Column(JSON, nullable=False, default=dict)
-    is_active = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    activated_at = Column(DateTime, nullable=True)
-    deactivated_at = Column(DateTime, nullable=True)
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    model_type: Mapped[str] = mapped_column(String, nullable=False)
+    version: Mapped[str] = mapped_column(String, nullable=False)
+    model_data: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
+    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    activated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    deactivated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     # Relationships
-    performance_metrics = relationship(
-        "ModelPerformance", back_populates="model_version"
-    )
+    performances: Mapped[List["ModelPerformance"]] = relationship("ModelPerformance", back_populates="model_version")
 
-    class Config:
-        """Pydantic config."""
-
-        orm_mode = True
+    def __repr__(self) -> str:
+        return f"<ModelVersion {self.model_type} v{self.version} ({self.id})>"
 
 
 class ModelPerformance(Base):
-    """Model performance metrics."""
+    """ML model performance metrics."""
 
-    __tablename__ = "model_performance"
+    __tablename__ = "model_performances"
 
-    id = Column(UUID(), primary_key=True, default=uuid4)
-    model_type = Column(String, nullable=False, index=True)
-    version = Column(String, nullable=False)
-    metrics = Column(JSON, nullable=False)
-    dataset_size = Column(Integer, nullable=False)
-    evaluation_time = Column(Float, nullable=False)
-    recorded_at = Column(DateTime, nullable=False, default=datetime.now)
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    model_version_id: Mapped[UUID] = mapped_column(
+        PGUUID(), ForeignKey("model_versions.id"), nullable=False
+    )
+    metrics: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
+    dataset_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    evaluation_time: Mapped[float] = mapped_column(Float, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relationships
-    model_version = relationship("ModelVersion", back_populates="performance_metrics")
+    model_version: Mapped["ModelVersion"] = relationship("ModelVersion", back_populates="performances")
 
-    class Config:
-        """Pydantic config."""
-
-        orm_mode = True
+    def __repr__(self) -> str:
+        return f"<ModelPerformance {self.model_version.model_type} v{self.model_version.version} ({self.id})>"
 
 
 class FinancialInstitution(Base):
@@ -112,21 +105,21 @@ class FinancialInstitution(Base):
 
     __tablename__ = "financial_institutions"
 
-    id = Column(PGUUID(), primary_key=True, default=uuid4)
-    user_id = Column(
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
         PGUUID(), ForeignKey("users.id"), nullable=False, index=True
     )
-    name = Column(String, nullable=False)
-    plaid_access_token = Column(String, nullable=False)
-    plaid_item_id = Column(String, nullable=False, index=True)
-    plaid_institution_id = Column(String, nullable=True)
-    is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    last_updated = Column(DateTime, nullable=False, default=datetime.utcnow)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    plaid_access_token: Mapped[str] = mapped_column(String, nullable=False)
+    plaid_item_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    plaid_institution_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    last_updated: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relationships
-    user = relationship("User", back_populates="financial_institutions")
-    accounts = relationship("FinancialAccount", back_populates="institution")
+    user: Mapped["User"] = relationship("User", back_populates="financial_institutions")
+    accounts: Mapped[List["FinancialAccount"]] = relationship("FinancialAccount", back_populates="institution")
 
     def __repr__(self):
         return f"<FinancialInstitution {self.name} ({self.id})>"
@@ -137,28 +130,28 @@ class FinancialAccount(Base):
 
     __tablename__ = "financial_accounts"
 
-    id = Column(PGUUID(), primary_key=True, default=uuid4)
-    user_id = Column(
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
         PGUUID(), ForeignKey("users.id"), nullable=False, index=True
     )
-    institution_id = Column(
+    institution_id: Mapped[UUID] = mapped_column(
         PGUUID(), ForeignKey("financial_institutions.id"), nullable=False
     )
-    plaid_account_id = Column(String, nullable=False, index=True)
-    name = Column(String, nullable=False)
-    official_name = Column(String, nullable=True)
-    type = Column(String, nullable=False)
-    subtype = Column(String, nullable=True)
-    mask = Column(String, nullable=True)
-    balances = Column(JSON, nullable=False, default=dict)
-    is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    last_updated = Column(DateTime, nullable=False, default=datetime.utcnow)
+    plaid_account_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    official_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    type: Mapped[str] = mapped_column(String, nullable=False)
+    subtype: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    mask: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    balances: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    last_updated: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relationships
-    user = relationship("User", back_populates="financial_accounts")
-    institution = relationship("FinancialInstitution", back_populates="accounts")
-    transactions = relationship("FinancialTransaction", back_populates="account")
+    user: Mapped["User"] = relationship("User", back_populates="financial_accounts")
+    institution: Mapped["FinancialInstitution"] = relationship("FinancialInstitution", back_populates="accounts")
+    transactions: Mapped[List["FinancialTransaction"]] = relationship("FinancialTransaction", back_populates="account")
 
     def __repr__(self):
         return f"<FinancialAccount {self.name} ({self.id})>"
@@ -169,66 +162,119 @@ class FinancialTransaction(Base):
 
     __tablename__ = "financial_transactions"
 
-    id = Column(PGUUID(), primary_key=True, default=uuid4)
-    user_id = Column(
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
         PGUUID(), ForeignKey("users.id"), nullable=False, index=True
     )
-    account_id = Column(String, nullable=False, index=True)
-    transaction_id = Column(String, nullable=False, unique=True, index=True)
-    amount = Column(Float, nullable=False)
-    date = Column(DateTime, nullable=False, index=True)
-    name = Column(String, nullable=False)
-    merchant_name = Column(String, nullable=True)
-    pending = Column(Boolean, nullable=False, default=False)
-    category = Column(JSON, nullable=True)
-    category_id = Column(String, nullable=True)
-    transaction_type = Column(String, nullable=True)
-    payment_channel = Column(String, nullable=True)
-    location = Column(JSON, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    last_updated = Column(DateTime, nullable=False, default=datetime.utcnow)
+    account_id: Mapped[UUID] = mapped_column(
+        PGUUID(), ForeignKey("financial_accounts.id"), nullable=False
+    )
+    transaction_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    date: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    merchant_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    pending: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    category: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    category_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    transaction_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    payment_channel: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    location: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    last_updated: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relationships
-    user = relationship("User", back_populates="financial_transactions")
-    account = relationship(
-        "FinancialAccount",
-        back_populates="transactions",
-        foreign_keys=[account_id],
-        primaryjoin="FinancialAccount.plaid_account_id == FinancialTransaction.account_id",
-    )
+    user: Mapped["User"] = relationship("User", back_populates="financial_transactions")
+    account: Mapped["FinancialAccount"] = relationship("FinancialAccount", back_populates="financial_transactions")
+    anomalies: Mapped[List["Anomaly"]] = relationship("Anomaly", back_populates="transaction")
 
     def __repr__(self):
         return f"<FinancialTransaction {self.name} ({self.id})>"
 
 
+class UserRole(str, SQLEnum):
+    """User role enum."""
+
+    ADMIN = "admin"
+    USER = "user"
+    VIEWER = "viewer"
+
+
+class NotificationChannel(str, SQLEnum):
+    """Notification channel enum."""
+
+    EMAIL = "email"
+    SLACK = "slack"
+    WEBHOOK = "webhook"
+    SMS = "sms"
+
+
+class NotificationStatus(str, SQLEnum):
+    """Notification status enum."""
+
+    PENDING = "pending"
+    SENT = "sent"
+    DELIVERED = "delivered"
+    FAILED = "failed"
+
+
 class User(Base):
+    """User information."""
+
     __tablename__ = "users"
-    # ... existing code ...
+
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PGUUID(), ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    email: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String, nullable=False)
+    full_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    role: Mapped[UserRole] = mapped_column(SQLEnum(UserRole), nullable=False, default=UserRole.USER)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="users")
+    financial_institutions: Mapped[List["FinancialInstitution"]] = relationship("FinancialInstitution", back_populates="user")
+    financial_accounts: Mapped[List["FinancialAccount"]] = relationship("FinancialAccount", back_populates="user")
+    financial_transactions: Mapped[List["FinancialTransaction"]] = relationship("FinancialTransaction", back_populates="user")
+    transactions: Mapped[List["Transaction"]] = relationship("Transaction", back_populates="user")
+
+    def __repr__(self) -> str:
+        return f"<User {self.email} ({self.id})>"
+
+    def get_permissions(self) -> Dict[str, List[str]]:
+        """Get user permissions based on role."""
+        base_permissions = {
+            "read": ["transactions", "accounts", "institutions", "anomalies"],
+            "write": [],
+            "admin": []
+        }
+        
+        if self.role == UserRole.ADMIN:
+            base_permissions["write"].extend(["transactions", "accounts", "institutions", "anomalies"])
+            base_permissions["admin"].extend(["users", "settings", "models"])
+        elif self.role == UserRole.USER:
+            base_permissions["write"].extend(["transactions", "accounts", "institutions"])
+            
+        return base_permissions
 
 
-# Add relationships after User class definition
-User.financial_institutions = relationship(
-    "FinancialInstitution", back_populates="user"
-)
-User.financial_accounts = relationship("FinancialAccount", back_populates="user")
-User.financial_transactions = relationship(
-    "FinancialTransaction", back_populates="user"
-)
-# ... existing code ...
+class AnomalyType(str, SQLEnum):
+    """Anomaly type enum."""
 
-
-class AnomalyType(str, Enum):
-    """Anomaly type enumeration."""
-
-    TRANSACTION = "transaction"
-    ACCOUNT = "account"
-    BEHAVIORAL = "behavioral"
-    SYSTEM = "system"
-    ML_BASED = "ml_based"
-    RULES_BASED = "rules_based"
-    STATISTICAL_OUTLIER = "statistical_outlier"
-    RULE_BASED = "rule_based"
-    ML_DETECTED = "ml_detected"
+    LARGE_AMOUNT = "large_amount"
+    UNUSUAL_PATTERN = "unusual_pattern"
+    UNAPPROVED_VENDOR = "unapproved_vendor"
+    DUPLICATE_TRANSACTION = "duplicate_transaction"
+    SUSPICIOUS_TIMING = "suspicious_timing"
+    UNUSUAL_LOCATION = "unusual_location"
+    UNUSUAL_CATEGORY = "unusual_category"
+    UNUSUAL_FREQUENCY = "unusual_frequency"
+    UNUSUAL_AMOUNT = "unusual_amount"
+    UNUSUAL_MERCHANT = "unusual_merchant"
 
 
 class FeedbackType(str, Enum):
@@ -252,17 +298,19 @@ class RiskLevel(str, Enum):
     CRITICAL = "critical"
 
 
-class AnomalyStatus(str, Enum):
-    """Anomaly status enumeration."""
+class AnomalyStatus(str, SQLEnum):
+    """Anomaly status enum."""
 
     NEW = "new"
     IN_REVIEW = "in_review"
     RESOLVED = "resolved"
+    FALSE_POSITIVE = "false_positive"
+    CONFIRMED = "confirmed"
     IGNORED = "ignored"
 
 
-class AnomalyRiskLevel(str, Enum):
-    """Anomaly risk level enumeration."""
+class AnomalyRiskLevel(str, SQLEnum):
+    """Anomaly risk level enum."""
 
     LOW = "low"
     MEDIUM = "medium"
@@ -270,152 +318,70 @@ class AnomalyRiskLevel(str, Enum):
     CRITICAL = "critical"
 
 
-class NotificationChannel(str, Enum):
-    """Notification channel enumeration."""
-
-    EMAIL = "email"
-    SMS = "sms"
-    SLACK = "slack"
-    WEBHOOK = "webhook"
-
-
-class NotificationStatus(str, Enum):
-    """Notification status enumeration."""
-
-    PENDING = "pending"
-    SENT = "sent"
-    FAILED = "failed"
-    DELIVERED = "delivered"
-
-
-class UserRole(str, Enum):
-    """User role enumeration."""
-
-    ADMIN = "admin"
-    USER = "user"
-    VIEWER = "viewer"
-
-
-class DataSource(str, Enum):
-    """Data source enumeration."""
-
-    PLAID = "plaid"
-    QUICKBOOKS = "quickbooks"
-    MANUAL = "manual"
-
-
-class Anomaly(Base):
-    """Anomaly detection result."""
-
-    __tablename__ = "anomalies"
-
-    id = Column(PGUUID(), primary_key=True, default=uuid4)
-    tenant_id = Column(
-        PGUUID(), ForeignKey("tenants.id"), nullable=False, index=True
-    )
-    transaction_id = Column(
-        PGUUID(), ForeignKey("financial_transactions.id"), nullable=True
-    )
-    anomaly_type = Column(SQLEnum(AnomalyType), nullable=False)
-    status = Column(SQLEnum(AnomalyStatus), nullable=False, default=AnomalyStatus.NEW)
-    risk_level = Column(SQLEnum(AnomalyRiskLevel), nullable=False)
-    score = Column(Float, nullable=False)
-    explanation = Column(String, nullable=True)
-    metadata = Column(JSON, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    resolved_at = Column(DateTime, nullable=True)
-
-    # Relationships
-    tenant = relationship("Tenant", back_populates="anomalies")
-    transaction = relationship("FinancialTransaction", back_populates="anomalies")
-
-
-class Tenant(Base):
-    """Tenant information."""
-
-    __tablename__ = "tenants"
-
-    id = Column(PGUUID(), primary_key=True, default=uuid4)
-    name = Column(String, nullable=False)
-    api_key = Column(String, nullable=False, unique=True)
-    is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-
-    # Relationships
-    users = relationship("User", back_populates="tenant")
-    anomalies = relationship("Anomaly", back_populates="tenant")
-    configurations = relationship("TenantConfiguration", back_populates="tenant")
-
-
-class TenantConfiguration(Base):
-    """Tenant configuration settings."""
-
-    __tablename__ = "tenant_configurations"
-
-    id = Column(PGUUID(), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(), ForeignKey("tenants.id"), nullable=False)
-    key = Column(String, nullable=False)
-    value = Column(JSON, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-
-    # Relationships
-    tenant = relationship("Tenant", back_populates="configurations")
-
-
 class Notification(Base):
-    """Notification record."""
+    """System notification records."""
 
     __tablename__ = "notifications"
 
-    id = Column(PGUUID(), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(), ForeignKey("tenants.id"), nullable=False)
-    user_id = Column(PGUUID(), ForeignKey("users.id"), nullable=False)
-    channel = Column(SQLEnum(NotificationChannel), nullable=False)
-    status = Column(
-        SQLEnum(NotificationStatus), nullable=False, default=NotificationStatus.PENDING
-    )
-    subject = Column(String, nullable=False)
-    message = Column(String, nullable=False)
-    metadata = Column(JSON, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    sent_at = Column(DateTime, nullable=True)
-    delivered_at = Column(DateTime, nullable=True)
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    tenant_id: Mapped[UUID] = mapped_column(PGUUID(), ForeignKey("tenants.id"), nullable=False)
+    user_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(), ForeignKey("users.id"), nullable=True)
+    channel: Mapped[NotificationChannel] = mapped_column(Enum(NotificationChannel), nullable=False)
+    status: Mapped[NotificationStatus] = mapped_column(Enum(NotificationStatus), nullable=False, default=NotificationStatus.PENDING)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    message: Mapped[str] = mapped_column(String, nullable=False)
+    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     # Relationships
-    tenant = relationship("Tenant")
-    user = relationship("User")
+    tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="notifications")
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="notifications")
+
+    def __repr__(self) -> str:
+        return f"<Notification {self.id} ({self.channel})>"
 
 
 class ErrorLog(Base):
-    """System error log."""
+    """System error logging."""
 
     __tablename__ = "error_logs"
 
-    id = Column(PGUUID(), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(), ForeignKey("tenants.id"), nullable=True)
-    error_type = Column(String, nullable=False)
-    message = Column(String, nullable=False)
-    stack_trace = Column(String, nullable=True)
-    metadata = Column(JSON, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    tenant_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(), ForeignKey("tenants.id"), nullable=True)
+    user_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(), ForeignKey("users.id"), nullable=True)
+    error_type: Mapped[str] = mapped_column(String, nullable=False)
+    message: Mapped[str] = mapped_column(String, nullable=False)
+    stack_trace: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relationships
-    tenant = relationship("Tenant")
+    tenant: Mapped[Optional["Tenant"]] = relationship("Tenant", back_populates="error_logs")
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="error_logs")
+
+    def __repr__(self) -> str:
+        return f"<ErrorLog {self.error_type} ({self.id})>"
 
 
 class SystemMetric(Base):
-    """System performance metric."""
+    """System performance metrics."""
 
     __tablename__ = "system_metrics"
 
-    id = Column(PGUUID(), primary_key=True, default=uuid4)
-    metric_name = Column(String, nullable=False)
-    metric_value = Column(Float, nullable=False)
-    metadata = Column(JSON, nullable=True)
-    recorded_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    tenant_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(), ForeignKey("tenants.id"), nullable=True)
+    metric_type: Mapped[str] = mapped_column(String, nullable=False)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    tenant: Mapped[Optional["Tenant"]] = relationship("Tenant", back_populates="system_metrics")
+
+    def __repr__(self) -> str:
+        return f"<SystemMetric {self.metric_type} ({self.id})>"
 
 
 class Transaction(Base):
@@ -423,41 +389,126 @@ class Transaction(Base):
 
     __tablename__ = "transactions"
 
-    id = Column(PGUUID(), primary_key=True, default=uuid4)
-    user_id = Column(
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
         PGUUID(), ForeignKey("users.id"), nullable=False, index=True
     )
-    account_id = Column(
+    account_id: Mapped[UUID] = mapped_column(
         PGUUID(), ForeignKey("financial_accounts.id"), nullable=False
     )
-    amount = Column(Float, nullable=False)
-    date = Column(DateTime, nullable=False, index=True)
-    name = Column(String, nullable=False)
-    merchant_name = Column(String, nullable=True)
-    pending = Column(Boolean, nullable=False, default=False)
-    category = Column(JSON, nullable=True)
-    category_id = Column(String, nullable=True)
-    transaction_type = Column(String, nullable=True)
-    payment_channel = Column(String, nullable=True)
-    location = Column(JSON, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    last_updated = Column(DateTime, nullable=False, default=datetime.utcnow)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    date: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    merchant_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    pending: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    category: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    category_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    transaction_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    payment_channel: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    location: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    last_updated: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relationships
-    user = relationship("User", back_populates="transactions")
-    account = relationship("FinancialAccount", back_populates="transactions")
-    anomalies = relationship("Anomaly", back_populates="transaction")
+    user: Mapped["User"] = relationship("User", back_populates="transactions")
+    account: Mapped["FinancialAccount"] = relationship("FinancialAccount", back_populates="transactions")
+    anomalies: Mapped[List["Anomaly"]] = relationship("Anomaly", back_populates="transaction")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Transaction {self.name} ({self.id})>"
 
 
 class SensitivityConfig(Base):
-    __tablename__ = "sensitivity_configs"
-    id = Column(PGUUID(), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(), ForeignKey("tenants.id"), nullable=False)
-    config = Column(JSON, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    """Configuration for anomaly detection sensitivity."""
 
-    tenant = relationship("Tenant")
+    __tablename__ = "sensitivity_configs"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    tenant_id: Mapped[UUID] = mapped_column(PGUUID(), ForeignKey("tenants.id"), nullable=False)
+    anomaly_type: Mapped[AnomalyType] = mapped_column(Enum(AnomalyType), nullable=False)
+    threshold: Mapped[float] = mapped_column(Float, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="sensitivity_configs")
+
+    def __repr__(self) -> str:
+        return f"<SensitivityConfig {self.anomaly_type} for tenant {self.tenant_id}>"
+
+
+class Anomaly(Base):
+    """Anomaly detection record."""
+
+    __tablename__ = "anomalies"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    tenant_id: Mapped[UUID] = mapped_column(PGUUID(), ForeignKey("tenants.id"), nullable=False)
+    transaction_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(), ForeignKey("transactions.id"), nullable=True)
+    anomaly_type: Mapped[AnomalyType] = mapped_column(Enum(AnomalyType), nullable=False)
+    status: Mapped[AnomalyStatus] = mapped_column(Enum(AnomalyStatus), nullable=False, default=AnomalyStatus.PENDING)
+    risk_level: Mapped[AnomalyRiskLevel] = mapped_column(Enum(AnomalyRiskLevel), nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    explanation: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    # Relationships
+    tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="anomalies")
+    transaction: Mapped[Optional["Transaction"]] = relationship("Transaction", back_populates="anomalies")
+
+    def __repr__(self) -> str:
+        return f"<Anomaly {self.anomaly_type} ({self.id})>"
+
+
+class Tenant(Base):
+    """Tenant information."""
+
+    __tablename__ = "tenants"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    api_key: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    users: Mapped[List["User"]] = relationship("User", back_populates="tenant")
+    anomalies: Mapped[List["Anomaly"]] = relationship("Anomaly", back_populates="tenant")
+    configurations: Mapped[List["TenantConfiguration"]] = relationship("TenantConfiguration", back_populates="tenant")
+    notifications: Mapped[List["Notification"]] = relationship("Notification", back_populates="tenant")
+    error_logs: Mapped[List["ErrorLog"]] = relationship("ErrorLog", back_populates="tenant")
+    system_metrics: Mapped[List["SystemMetric"]] = relationship("SystemMetric", back_populates="tenant")
+    task_logs: Mapped[List["TaskLog"]] = relationship("TaskLog", back_populates="tenant")
+
+
+class TenantConfiguration(Base):
+    """Tenant-specific configuration settings."""
+
+    __tablename__ = "tenant_configurations"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(), primary_key=True, default=uuid4)
+    tenant_id: Mapped[UUID] = mapped_column(PGUUID(), ForeignKey("tenants.id"), nullable=False)
+    key: Mapped[str] = mapped_column(String, nullable=False)
+    value: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="configurations")
+
+    def __repr__(self) -> str:
+        return f"<TenantConfiguration {self.key} for tenant {self.tenant_id}>"
+
+
+class DataSource(str, SQLEnum):
+    """Data source enum."""
+
+    PLAID = "plaid"
+    QUICKBOOKS = "quickbooks"
+    MANUAL = "manual"
