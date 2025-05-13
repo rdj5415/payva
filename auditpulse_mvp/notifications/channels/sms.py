@@ -75,7 +75,9 @@ class SMSNotifier:
             # Send the SMS
             twilio_message = self.client.messages.create(**params)
 
-            logger.info(f"SMS sent successfully to {to_number}, SID: {twilio_message.sid}")
+            logger.info(
+                f"SMS sent successfully to {to_number}, SID: {twilio_message.sid}"
+            )
             return {
                 "status": "delivered",  # Twilio doesn't confirm delivery immediately
                 "to_number": to_number,
