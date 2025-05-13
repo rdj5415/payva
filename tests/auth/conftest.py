@@ -1,7 +1,7 @@
 """Test configuration for auth module."""
 import asyncio
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import sessionmaker
 
 from auditpulse_mvp.database.base import Base
@@ -10,14 +10,14 @@ from auditpulse_mvp.utils.settings import settings
 
 # Create test database engine
 test_engine = create_async_engine(
-    settings.DATABASE_URL,
+    str(settings.DATABASE_URL),  # Convert URL to string for compatibility
     echo=False,
     future=True,
 )
 
 # Create test session factory
-TestingSessionLocal = sessionmaker(
-    test_engine,
+TestingSessionLocal = async_sessionmaker(
+    bind=test_engine,
     class_=AsyncSession,
     expire_on_commit=False,
 )

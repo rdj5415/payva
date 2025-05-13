@@ -8,7 +8,7 @@ import sys
 from typing import AsyncGenerator, Generator
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import sessionmaker
 
 # Add parent directory to path to allow imports
@@ -23,12 +23,12 @@ settings = get_settings()
 
 # Create test engine
 test_engine = create_async_engine(
-    settings.DATABASE_TEST_URL or "sqlite+aiosqlite:///:memory:",
+    str(settings.DATABASE_TEST_URL or "sqlite+aiosqlite:///:memory:"),
     echo=False,
 )
 
 # Create async session factory
-TestingSessionLocal = sessionmaker(
+TestingSessionLocal = async_sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=test_engine,
