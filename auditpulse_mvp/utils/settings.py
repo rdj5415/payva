@@ -5,11 +5,15 @@ This module defines and validates all application settings using Pydantic.
 
 import os
 import secrets
-from typing import Literal, Optional, Union, List, Dict, Any
+from typing import Literal, Optional, Union, List, Dict, Any, cast, TypeVar, Type
 from functools import lru_cache
 
 from pydantic import Field, PostgresDsn, SecretStr, AnyUrl, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# Define a Type variable for settings classes
+T = TypeVar('T', bound='Settings')
 
 
 class Settings(BaseSettings):
@@ -34,30 +38,30 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     # QuickBooks
-    QUICKBOOKS_CLIENT_ID: str | None = None
-    QUICKBOOKS_CLIENT_SECRET: SecretStr | None = None
-    QUICKBOOKS_REDIRECT_URI: str | None = None
+    QUICKBOOKS_CLIENT_ID: Optional[str] = None
+    QUICKBOOKS_CLIENT_SECRET: Optional[SecretStr] = None
+    QUICKBOOKS_REDIRECT_URI: Optional[str] = None
     QUICKBOOKS_ENVIRONMENT: Literal["sandbox", "production"] = "sandbox"
 
     # Plaid
-    PLAID_CLIENT_ID: str | None = None
-    PLAID_SECRET: SecretStr | None = None
+    PLAID_CLIENT_ID: Optional[str] = None
+    PLAID_SECRET: Optional[SecretStr] = None
     PLAID_ENVIRONMENT: Literal["sandbox", "development", "production"] = "sandbox"
 
     # OpenAI
-    OPENAI_API_KEY: SecretStr | None = None
+    OPENAI_API_KEY: Optional[SecretStr] = None
 
     # Notification Services
-    SENDGRID_API_KEY: SecretStr | None = None
-    TWILIO_ACCOUNT_SID: str | None = None
-    TWILIO_AUTH_TOKEN: SecretStr | None = None
-    SLACK_BOT_TOKEN: SecretStr | None = None
+    SENDGRID_API_KEY: Optional[SecretStr] = None
+    TWILIO_ACCOUNT_SID: Optional[str] = None
+    TWILIO_AUTH_TOKEN: Optional[SecretStr] = None
+    SLACK_BOT_TOKEN: Optional[SecretStr] = None
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # Encryption
-    ENCRYPTION_KEY: SecretStr | None = None
+    ENCRYPTION_KEY: Optional[SecretStr] = None
 
     # Feature Flags
     ENABLE_ML_ENGINE: bool = True
@@ -95,8 +99,6 @@ class Settings(BaseSettings):
     # Base settings
     PROJECT_NAME: str = "Bungii"
     API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str = secrets.token_urlsafe(32)
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
 
     # CORS settings
     BACKEND_CORS_ORIGINS: List[AnyUrl] = []
@@ -113,7 +115,6 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "auditpulse"
     POSTGRES_PORT: str = "5432"
-    DATABASE_URL: Optional[PostgresDsn] = None
 
     @validator("DATABASE_URL", pre=True)
     def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
@@ -121,11 +122,11 @@ class Settings(BaseSettings):
             return v
         return PostgresDsn.build(
             scheme="postgresql+asyncpg",
-            user=values.get("POSTGRES_USER"),
-            password=values.get("POSTGRES_PASSWORD"),
-            host=values.get("POSTGRES_SERVER"),
-            port=values.get("POSTGRES_PORT"),
-            path=f"/{values.get('POSTGRES_DB') or ''}",
+            # Use values.get to access dictionary keys safely with defaults
+            password=values.get("POSTGRES_PASSWORD", ""),
+            host=values.get("POSTGRES_SERVER", ""),
+            port=values.get("POSTGRES_PORT", ""),
+            path=f"/{values.get('POSTGRES_DB', '')}",
         )
 
     # Task settings
@@ -166,22 +167,65 @@ class Settings(BaseSettings):
     RATE_LIMIT_TIMEFRAME: int = 60  # seconds
 
 
-# Check if we're in test mode
+# Define test settings class first before using it
+class TestSettings(Settings):
+    """Test settings with SQLite support."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env.test", env_file_encoding="utf-8", extra="ignore"
+    )
+    DATABASE_URL: Union[PostgresDsn, AnyUrl] = Field(
+        "sqlite+aiosqlite://:memory:", json_schema_extra={"env": "DATABASE_URL"}
+    )
+    DATABASE_TEST_URL: Optional[AnyUrl] = None
+    AUTH0_DOMAIN: str = "test.auth0.com"
+    AUTH0_CLIENT_ID: str = "test-client-id"
+    AUTH0_CLIENT_SECRET: SecretStr = SecretStr("test-client-secret")
+    AUTH0_CALLBACK_URL: str = "http://localhost:8000/auth/callback"
+
+
+# Now initialize settings based on environment
+# Create a variable with the right type
+# This will be assigned later based on environment
+settings: Union[Settings, TestSettings]
+
 if os.environ.get("ENVIRONMENT") == "test":
-    # For tests, allow SQLite
-    class TestSettings(Settings):
-        """Test settings with SQLite support."""
-
-        model_config = SettingsConfigDict(
-            env_file=".env.test", env_file_encoding="utf-8", extra="ignore"
-        )
-        DATABASE_URL: AnyUrl
-        DATABASE_TEST_URL: Optional[AnyUrl] = None
-
-    settings = TestSettings()
+    # For tests, use SQLite
+    db_url_str = "sqlite+aiosqlite:///:memory:"
+    # We need to cast to the specific type expected by TestSettings
+    db_url = cast(Union[PostgresDsn, AnyUrl], db_url_str)
+    
+    # Explicitly type as TestSettings
+    test_settings = TestSettings(
+        DATABASE_URL=db_url,
+        SECRET_KEY=SecretStr("test-secret-key"),
+        AUTH0_DOMAIN="test.auth0.com",
+        AUTH0_CLIENT_ID="test-client-id",
+        AUTH0_CLIENT_SECRET=SecretStr("test-client-secret"),
+        AUTH0_CALLBACK_URL="http://localhost:8000/auth/callback"
+    )
+    # Assign to the settings variable
+    settings = test_settings
 else:
     # Normal settings for production/development
-    settings = Settings()
+    db_url_str = os.environ.get(
+        "DATABASE_URL", 
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/auditpulse"
+    )
+    # Cast to the specific type expected by Settings
+    db_url = cast(Union[PostgresDsn, AnyUrl], db_url_str)
+    
+    # Explicitly type as Settings
+    prod_settings = Settings(
+        DATABASE_URL=db_url,
+        SECRET_KEY=SecretStr(os.environ.get("SECRET_KEY", secrets.token_urlsafe(32))),
+        AUTH0_DOMAIN=os.environ.get("AUTH0_DOMAIN", ""),
+        AUTH0_CLIENT_ID=os.environ.get("AUTH0_CLIENT_ID", ""),
+        AUTH0_CLIENT_SECRET=SecretStr(os.environ.get("AUTH0_CLIENT_SECRET", "")),
+        AUTH0_CALLBACK_URL=os.environ.get("AUTH0_CALLBACK_URL", "")
+    )
+    # Assign to the settings variable
+    settings = prod_settings
 
 
 @lru_cache
