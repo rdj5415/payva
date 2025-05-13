@@ -258,24 +258,43 @@ class RulesEngine:
         }
 
     async def get_anomaly_type(self, transaction: Transaction) -> Optional[AnomalyType]:
-        """Determine anomaly type based on rule results."""
+        """Determine anomaly type based on rule results.
+        
+        Args:
+            transaction: Transaction to evaluate
+            
+        Returns:
+            The AnomalyType if a rule is triggered, None otherwise
+        """
         result = await self.evaluate(transaction)
         for flag in result["flags"]:
             rule_type = flag["rule_type"]
             if rule_type == "amount_threshold":
-                # Use type casting to help mypy understand this is the correct type
                 return cast(AnomalyType, AnomalyType.LARGE_AMOUNT)
             elif rule_type == "unapproved_vendor":
                 return cast(AnomalyType, AnomalyType.UNAPPROVED_VENDOR)
             elif rule_type == "statistical_outlier":
                 return cast(AnomalyType, AnomalyType.UNUSUAL_AMOUNT)
+        
+        # Explicitly return None if no rules are triggered
         return None
 
     async def score(self, transaction: Transaction) -> float:
-        """Calculate an overall risk score for a transaction."""
+        """Calculate an overall risk score for a transaction.
+        
+        Args:
+            transaction: Transaction to evaluate
+            
+        Returns:
+            A float risk score between 0.0 and 1.0
+        """
         result = await self.evaluate(transaction)
         score = result.get("score", 0.0)
+        
+        # Ensure we always return a float
         try:
             return float(score)
-        except Exception:
+        except (ValueError, TypeError):
+            # Log the error and return default score
+            logger.error(f"Failed to convert score to float: {score}")
             return 0.0
