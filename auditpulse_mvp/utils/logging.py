@@ -95,6 +95,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         start_time = time.time()
 
         # Process request
+        response: Response
         try:
             response = await call_next(request)
             status_code = response.status_code

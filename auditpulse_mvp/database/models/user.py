@@ -88,7 +88,7 @@ class User(Base):
                 "scheduled_reports": ["email"],
             }
             return default_prefs
-        
+
         channels_data = self.notification_preferences.get("channels", {})
         # Ensure the return type is correctly annotated
         result: Dict[str, List[str]] = {}

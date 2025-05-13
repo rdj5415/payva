@@ -117,7 +117,9 @@ class Settings(BaseSettings):
     POSTGRES_PORT: str = "5432"
 
     @validator("DATABASE_URL", pre=True)
-    def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
+    def assemble_db_connection(
+        cls, v: Optional[str], values: Dict[str, Any]
+    ) -> Union[PostgresDsn, AnyUrl, str]:
         if isinstance(v, str):
             return v
         return PostgresDsn.build(
@@ -229,10 +231,10 @@ else:
 
 
 @lru_cache
-def get_settings() -> Settings:
+def get_settings() -> Union[Settings, TestSettings]:
     """Dependency function for FastAPI to get settings.
 
     Returns:
-        Settings: Application settings.
+        Union[Settings, TestSettings]: Application settings.
     """
     return settings

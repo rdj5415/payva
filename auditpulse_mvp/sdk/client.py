@@ -118,7 +118,7 @@ class AuditPulseClient:
 
     # Authentication methods
     async def login(self, email: str, password: str) -> Dict[str, str]:
-        """Login and get access token.
+        """Login to AuditPulse API.
 
         Args:
             email: User email
@@ -133,7 +133,8 @@ class AuditPulseClient:
             json={"email": email, "password": password},
         )
         self.token = data["access_token"]
-        return data
+        # Ensure we return a Dict[str, str]
+        return {k: str(v) for k, v in data.items() if isinstance(k, str)}
 
     async def refresh_token(self, refresh_token: str) -> Dict[str, str]:
         """Refresh access token.
@@ -150,7 +151,8 @@ class AuditPulseClient:
             json={"refresh_token": refresh_token},
         )
         self.token = data["access_token"]
-        return data
+        # Ensure we return a Dict[str, str]
+        return {k: str(v) for k, v in data.items() if isinstance(k, str)}
 
     # Transaction methods
     async def get_transactions(
@@ -306,7 +308,10 @@ class AuditPulseClient:
             f"/tenants/{tenant_id}/notification-settings",
             json=settings,
         )
-        return data
+        # Ensure we return a Dict[str, Any]
+        if not isinstance(data, dict):
+            return {"result": data}
+        return dict(data)
 
 
 class AuditPulseError(Exception):

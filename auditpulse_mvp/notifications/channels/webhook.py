@@ -71,7 +71,9 @@ class WebhookNotifier:
                 auth_tuple = aiohttp.BasicAuth(auth["username"], auth["password"])
 
             # Convert timeout to ClientTimeout object if provided
-            client_timeout = ClientTimeout(total=timeout) if timeout is not None else None
+            client_timeout = (
+                ClientTimeout(total=timeout) if timeout is not None else None
+            )
 
             # Send webhook request
             async with aiohttp.ClientSession() as session:
