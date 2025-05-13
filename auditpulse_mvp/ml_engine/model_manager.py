@@ -132,7 +132,7 @@ class ModelManager:
             .limit(limit)
         )
         result = await self.db.execute(stmt)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def activate_version(self, model_type: str, version: str) -> ModelVersion:
         """Activate a specific model version.
@@ -241,7 +241,7 @@ class ModelManager:
         stmt = stmt.order_by(ModelPerformance.recorded_at.desc()).limit(limit)
 
         result = await self.db.execute(stmt)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def get_performance_summary(
         self,
@@ -273,10 +273,19 @@ class ModelManager:
         latest = await self.get_performance_history(model_type, version, limit=1)
         latest_metrics = latest[0].metrics if latest else {}
 
+        # Handle possible None values in summary
+        if summary is None:
+            return {
+                "avg_evaluation_time": 0.0,
+                "avg_dataset_size": 0,
+                "evaluation_count": 0,
+                "latest_metrics": latest_metrics,
+            }
+
         return {
-            "avg_evaluation_time": summary.avg_evaluation_time,
-            "avg_dataset_size": summary.avg_dataset_size,
-            "evaluation_count": summary.evaluation_count,
+            "avg_evaluation_time": summary.avg_evaluation_time or 0.0,
+            "avg_dataset_size": summary.avg_dataset_size or 0,
+            "evaluation_count": summary.evaluation_count or 0,
             "latest_metrics": latest_metrics,
         }
 
