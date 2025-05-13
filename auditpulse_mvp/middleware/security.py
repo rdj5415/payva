@@ -9,7 +9,7 @@ and comprehensive audit logging.
 import time
 import secrets
 import ipaddress
-from typing import Callable, Dict, List, Optional, Tuple, Union, Set
+from typing import Callable, Dict, List, Optional, Tuple, Union, Set, Any
 from fastapi import Request, Response, HTTPException, status, Depends
 from fastapi.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.base import RequestResponseEndpoint
@@ -36,7 +36,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         app,
         requests_limit: int = 100,
         window_seconds: int = 60,
-        exclude_paths: List[str] = None,
+        exclude_paths: Optional[List[str]] = None,
         admin_requests_limit: int = 200,  # Higher limit for admin endpoints
         burst_limit: int = 10,  # Maximum requests allowed in a burst (1 second)
         block_duration_seconds: int = 300,  # Block excessive requests for 5 minutes
@@ -58,8 +58,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.admin_requests_limit = admin_requests_limit
         self.window_seconds = window_seconds
         self.exclude_paths = exclude_paths or ["/health", "/api/docs", "/api/redoc"]
-        self.requests = {}  # Dict to track requests: {ip: [(timestamp, path), ...]}
-        self.blocked_ips = {}  # Dict to track blocked IPs: {ip: unblock_timestamp}
+        self.requests: Dict[str, Any] = {}  # Dict to track requests: {ip: [(timestamp, path), ...]}
+        self.blocked_ips: Dict[str, Any] = {}  # Dict to track blocked IPs: {ip: unblock_timestamp}
         self.burst_limit = burst_limit
         self.block_duration_seconds = block_duration_seconds
         self.cleanup_counter = 0
@@ -289,8 +289,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         cookie_name: str = "csrf_token",
         header_name: str = "X-CSRF-Token",
         cookie_max_age: int = 3600,  # 1 hour
-        exclude_methods: List[str] = None,
-        exclude_paths: List[str] = None,
+        exclude_methods: Optional[List[str]] = None,
+        exclude_paths: Optional[List[str]] = None,
         samesite: str = "strict",
         secure: bool = True,
     ):
@@ -403,11 +403,11 @@ class IPAllowListMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
         app,
-        protected_paths: List[str] = None,
-        allowed_ips: List[str] = None,
-        allowed_ip_ranges: List[str] = None,
+        protected_paths: Optional[List[str]] = None,
+        allowed_ips: Optional[List[str]] = None,
+        allowed_ip_ranges: Optional[List[str]] = None,
         admin_api_key_header: str = "X-Admin-API-Key",
-        admin_api_keys: List[str] = None,
+        admin_api_keys: Optional[List[str]] = None,
     ):
         """
         Initialize the IP allowlist middleware.
@@ -504,8 +504,8 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
         app,
-        sensitive_paths: List[str] = None,
-        sensitive_params: List[str] = None,
+        sensitive_paths: Optional[List[str]] = None,
+        sensitive_params: Optional[List[str]] = None,
         log_request_body: bool = False,
     ):
         """
