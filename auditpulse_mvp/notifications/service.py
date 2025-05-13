@@ -1,16 +1,17 @@
 """
-Main notification service implementation.
+Notification service for sending alerts and informational messages.
 """
 
 import asyncio
 import logging
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..database.models import Anomaly, NotificationConfig, Tenant, User
+from ..database.models import Anomaly, Tenant
+from .notification_service import NotificationConfig
 from .providers import EmailProvider, SlackProvider
 
 logger = logging.getLogger(__name__)
@@ -93,8 +94,9 @@ class NotificationService:
 
             if self.slack_provider and notification.get("slack_enabled", False):
                 await self.slack_provider.send(
-                    webhook_url=notification["slack_webhook"],
-                    message=notification["slack_message"],
+                    recipients=[notification["slack_webhook"]],
+                    subject="",  # Not used for Slack
+                    body=notification["slack_message"],
                     priority=notification.get("priority", NotificationPriority.MEDIUM),
                 )
         except Exception as e:
@@ -124,7 +126,7 @@ class NotificationService:
             "email_enabled": config.email_enabled,
             "slack_enabled": config.slack_enabled,
             "recipients": config.email_recipients,
-            "slack_webhook": config.slack_webhook,
+            "slack_webhook": config.slack_webhook_url,
             "subject": f"New {anomaly.risk_level} Risk Anomaly Detected",
             "body": self._generate_anomaly_email_body(anomaly, tenant),
             "slack_message": self._generate_anomaly_slack_message(anomaly, tenant),
@@ -153,7 +155,7 @@ class NotificationService:
             "email_enabled": config.email_enabled,
             "slack_enabled": config.slack_enabled,
             "recipients": config.email_recipients,
-            "slack_webhook": config.slack_webhook,
+            "slack_webhook": config.slack_webhook_url,
             "subject": f"Anomaly Resolved: {anomaly.risk_level} Risk",
             "body": self._generate_resolution_email_body(anomaly, tenant),
             "slack_message": self._generate_resolution_slack_message(anomaly, tenant),
@@ -176,8 +178,7 @@ class NotificationService:
             config: Notification configuration
             summary_data: Summary data for the day
         """
-        if config.notification_frequency != "Daily":
-            return
+        # Daily summaries are always sent regardless of frequency settings
 
         notification = {
             "type": NotificationType.DAILY_SUMMARY,
@@ -185,7 +186,7 @@ class NotificationService:
             "email_enabled": config.email_enabled,
             "slack_enabled": config.slack_enabled,
             "recipients": config.email_recipients,
-            "slack_webhook": config.slack_webhook,
+            "slack_webhook": config.slack_webhook_url,
             "subject": f"Daily Anomaly Summary - {tenant.name}",
             "body": self._generate_daily_summary_email_body(summary_data, tenant),
             "slack_message": self._generate_daily_summary_slack_message(
@@ -207,13 +208,19 @@ class NotificationService:
         Returns:
             True if notification should be sent, False otherwise
         """
-        if anomaly.risk_level == "HIGH" and config.notify_high_risk:
-            return True
-        if anomaly.risk_level == "MEDIUM" and config.notify_medium_risk:
-            return True
-        if anomaly.risk_level == "LOW" and config.notify_low_risk:
-            return True
-        return False
+        # Use notification_threshold from config to determine if we should notify
+        risk_levels = {
+            "HIGH": 3,
+            "MEDIUM": 2,
+            "LOW": 1,
+        }
+
+        anomaly_risk_level = risk_levels.get(str(anomaly.risk_level), 0)
+        threshold_risk_level = risk_levels.get(
+            config.notification_threshold, 3
+        )  # Default to HIGH
+
+        return anomaly_risk_level >= threshold_risk_level
 
     def _get_priority_for_risk_level(self, risk_level: str) -> NotificationPriority:
         """Get notification priority for a risk level.
@@ -240,22 +247,35 @@ class NotificationService:
         Returns:
             Email body text
         """
-        return f"""
+        # Base anomaly info
+        email_body = f"""
         Anomaly Detected - {tenant.name}
 
         Risk Level: {anomaly.risk_level}
         Type: {anomaly.anomaly_type}
         Score: {anomaly.score:.2f}
         Explanation: {anomaly.explanation}
+        """
 
+        # Only add transaction details if transaction exists
+        if anomaly.transaction is not None:
+            email_body += f"""
         Transaction Details:
         Amount: ${anomaly.transaction.amount:.2f}
         Description: {anomaly.transaction.description}
         Merchant: {anomaly.transaction.merchant_name}
         Date: {anomaly.transaction.transaction_date}
+            """
+        else:
+            email_body += """
+        Transaction Details: Not available
+            """
 
+        email_body += """
         Please review this anomaly in the AuditPulse dashboard.
         """
+
+        return email_body
 
     def _generate_anomaly_slack_message(self, anomaly: Anomaly, tenant: Tenant) -> str:
         """Generate Slack message for anomaly notification.
@@ -267,20 +287,33 @@ class NotificationService:
         Returns:
             Slack message text
         """
-        return f"""
+        # Base anomaly info
+        slack_message = f"""
         *{anomaly.risk_level} Risk Anomaly Detected*
         Tenant: {tenant.name}
         Type: {anomaly.anomaly_type}
         Score: {anomaly.score:.2f}
+        """
 
+        # Only add transaction details if transaction exists
+        if anomaly.transaction is not None:
+            slack_message += f"""
         *Transaction Details:*
         Amount: ${anomaly.transaction.amount:.2f}
         Description: {anomaly.transaction.description}
         Merchant: {anomaly.transaction.merchant_name}
         Date: {anomaly.transaction.transaction_date}
+            """
+        else:
+            slack_message += """
+        *Transaction Details:* Not available
+            """
 
+        slack_message += f"""
         _Explanation: {anomaly.explanation}_
         """
+
+        return slack_message
 
     def _generate_resolution_email_body(self, anomaly: Anomaly, tenant: Tenant) -> str:
         """Generate email body for anomaly resolution notification.
@@ -292,20 +325,31 @@ class NotificationService:
         Returns:
             Email body text
         """
-        return f"""
+        # Base resolution info
+        email_body = f"""
         Anomaly Resolved - {tenant.name}
 
         Risk Level: {anomaly.risk_level}
         Type: {anomaly.anomaly_type}
         Feedback: {anomaly.feedback_type}
         Resolution Notes: {anomaly.resolution_notes}
+        """
 
+        # Only add transaction details if transaction exists
+        if anomaly.transaction is not None:
+            email_body += f"""
         Transaction Details:
         Amount: ${anomaly.transaction.amount:.2f}
         Description: {anomaly.transaction.description}
         Merchant: {anomaly.transaction.merchant_name}
         Date: {anomaly.transaction.transaction_date}
-        """
+            """
+        else:
+            email_body += """
+        Transaction Details: Not available
+            """
+
+        return email_body
 
     def _generate_resolution_slack_message(
         self, anomaly: Anomaly, tenant: Tenant
@@ -319,21 +363,34 @@ class NotificationService:
         Returns:
             Slack message text
         """
-        return f"""
+        # Base resolution info
+        slack_message = f"""
         *Anomaly Resolved*
         Tenant: {tenant.name}
         Risk Level: {anomaly.risk_level}
         Type: {anomaly.anomaly_type}
         Feedback: {anomaly.feedback_type}
+        """
 
+        # Only add transaction details if transaction exists
+        if anomaly.transaction is not None:
+            slack_message += f"""
         *Transaction Details:*
         Amount: ${anomaly.transaction.amount:.2f}
         Description: {anomaly.transaction.description}
         Merchant: {anomaly.transaction.merchant_name}
         Date: {anomaly.transaction.transaction_date}
+            """
+        else:
+            slack_message += """
+        *Transaction Details:* Not available
+            """
 
+        slack_message += f"""
         _Resolution Notes: {anomaly.resolution_notes}_
         """
+
+        return slack_message
 
     def _generate_daily_summary_email_body(
         self, summary_data: Dict, tenant: Tenant

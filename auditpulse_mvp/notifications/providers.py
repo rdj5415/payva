@@ -126,20 +126,22 @@ class SlackProvider(NotificationProvider):
 
     async def send(
         self,
-        webhook_url: str,
-        message: str,
+        recipients: List[str],
+        subject: str,
+        body: str,
         priority: NotificationPriority = NotificationPriority.MEDIUM,
     ):
         """Send a Slack notification.
 
         Args:
-            webhook_url: Slack webhook URL
-            message: Message to send
+            recipients: List of webhook URLs (only the first one is used)
+            subject: Not used for Slack
+            body: Message to send
             priority: Notification priority
         """
         try:
-            # Use default webhook URL if none provided
-            webhook_url = webhook_url or self.default_webhook_url
+            # Use first recipient as webhook URL, or fall back to default
+            webhook_url = recipients[0] if recipients else self.default_webhook_url
             if not webhook_url:
                 raise ValueError("No webhook URL provided")
 
@@ -149,7 +151,7 @@ class SlackProvider(NotificationProvider):
                 NotificationPriority.MEDIUM: "🟡",
                 NotificationPriority.LOW: "🟢",
             }
-            message = f"{priority_indicators.get(priority, '')} {message}"
+            message = f"{priority_indicators.get(priority, '')} {body}"
 
             # Send message
             async with aiohttp.ClientSession() as session:

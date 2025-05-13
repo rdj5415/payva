@@ -73,7 +73,7 @@ class NotificationService:
         config = self._get_notification_config(tenant)
 
         # Check if we should notify based on risk level
-        if anomaly.risk_level.value < config.notification_threshold:
+        if str(anomaly.risk_level) not in config.notification_threshold:
             logger.info(f"Skipping notification for {anomaly.id} - risk level too low")
             return True
 
@@ -87,7 +87,7 @@ class NotificationService:
             try:
                 await self._send_email(
                     recipients=config.email_recipients,
-                    subject=f"New {anomaly.risk_level.value} Risk Anomaly Detected",
+                    subject=f"New {str(anomaly.risk_level)} Risk Anomaly Detected",
                     content=content,
                 )
             except Exception as e:
@@ -195,8 +195,8 @@ class NotificationService:
         return template.render(
             anomaly=anomaly,
             transaction=anomaly.transaction,
-            risk_level=anomaly.risk_level.value,
-            anomaly_type=anomaly.anomaly_type.value,
+            risk_level=str(anomaly.risk_level),
+            anomaly_type=str(anomaly.anomaly_type),
             explanation=anomaly.explanation,
         )
 
@@ -244,7 +244,7 @@ class NotificationService:
         """
         # Create message
         msg = MIMEMultipart()
-        msg["From"] = settings.SMTP_FROM_EMAIL
+        msg["From"] = settings.EMAILS_FROM_EMAIL
         msg["To"] = ", ".join(recipients)
         msg["Subject"] = subject
 
@@ -253,10 +253,10 @@ class NotificationService:
 
         # Send email
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            if settings.SMTP_USE_TLS:
+            if settings.SMTP_TLS:
                 server.starttls()
-            if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
-                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             server.send_message(msg)
 
     async def _send_slack(
