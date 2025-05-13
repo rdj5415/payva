@@ -204,10 +204,6 @@ class FeedbackLearningScheduler:
             return await self._run_feedback_learning()
 
 
-# Global scheduler instance for the application
-_feedback_learning_scheduler: Optional[FeedbackLearningScheduler] = None
-
-
 async def get_feedback_learning_scheduler(db_session: AsyncSession = Depends(get_db_session)) -> FeedbackLearningScheduler:
     """Get or create the global feedback learning scheduler instance.
     
@@ -217,10 +213,8 @@ async def get_feedback_learning_scheduler(db_session: AsyncSession = Depends(get
     Returns:
         FeedbackLearningScheduler: The global feedback learning scheduler instance.
     """
-    global _feedback_learning_scheduler
-    if _feedback_learning_scheduler is None:
-        _feedback_learning_scheduler = FeedbackLearningScheduler(db_session=db_session)
-    return _feedback_learning_scheduler
+    scheduler = FeedbackLearningScheduler(db_session=db_session)
+    return scheduler
 
 
 async def start_feedback_learning_scheduler():
@@ -233,7 +227,6 @@ async def start_feedback_learning_scheduler():
 
 async def stop_feedback_learning_scheduler():
     """Stop the feedback learning scheduler on application shutdown."""
-    global _feedback_learning_scheduler
-    if _feedback_learning_scheduler is not None:
-        await _feedback_learning_scheduler.stop()
-        logger.info("Feedback Learning Scheduler stopped on application shutdown") 
+    scheduler = await get_feedback_learning_scheduler()
+    await scheduler.stop()
+    logger.info("Feedback Learning Scheduler stopped on application shutdown") 

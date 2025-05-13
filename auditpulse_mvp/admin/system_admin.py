@@ -7,6 +7,7 @@ import datetime
 import psutil
 import os
 import time
+import inspect
 from typing import Any, Dict, List, Optional, Union
 
 from apscheduler.job import Job
@@ -25,10 +26,14 @@ from auditpulse_mvp.tasks.tasks import (
     detect_anomalies_task,
     send_notifications_task,
     cleanup_old_data_task,
+    backup_database_task,
+    update_metrics_task,
 )
 from auditpulse_mvp.utils.settings import get_settings, Settings
 from auditpulse_mvp.config import settings
 from auditpulse_mvp.tasks.task_manager import TaskManager
+import platform
+from redis import Redis
 
 
 # Configure logging

@@ -145,10 +145,6 @@ class MLScheduler:
         return await self._run_retraining()
 
 
-# Global scheduler instance for the application
-_ml_scheduler: Optional[MLScheduler] = None
-
-
 async def get_ml_scheduler(db_session: AsyncSession = Depends(get_db_session)) -> MLScheduler:
     """Get or create the global ML scheduler instance.
     
@@ -158,10 +154,8 @@ async def get_ml_scheduler(db_session: AsyncSession = Depends(get_db_session)) -
     Returns:
         MLScheduler: The global ML scheduler instance.
     """
-    global _ml_scheduler
-    if _ml_scheduler is None:
-        _ml_scheduler = MLScheduler(db_session=db_session)
-    return _ml_scheduler
+    scheduler = MLScheduler(db_session=db_session)
+    return scheduler
 
 
 async def start_ml_scheduler():
@@ -174,7 +168,6 @@ async def start_ml_scheduler():
 
 async def stop_ml_scheduler():
     """Stop the ML scheduler on application shutdown."""
-    global _ml_scheduler
-    if _ml_scheduler is not None:
-        await _ml_scheduler.stop()
-        logger.info("ML Scheduler stopped on application shutdown") 
+    scheduler = await get_ml_scheduler()
+    await scheduler.stop()
+    logger.info("ML Scheduler stopped on application shutdown") 

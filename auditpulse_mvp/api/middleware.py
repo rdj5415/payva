@@ -5,6 +5,12 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
 from auditpulse_mvp.api.middleware import SecurityHeadersMiddleware
+from fastapi import FastAPI
+from auditpulse_mvp.utils.settings import get_settings, Settings
+from starlette.middleware.cors import CORSMiddleware
+from auditpulse_mvp.middleware.tenant import TenantMiddleware
+from auditpulse_mvp.middleware.logging import LoggingMiddleware
+from auditpulse_mvp.config import settings
 
 def setup_middlewares(app: FastAPI) -> None:
     """Configure middlewares for the FastAPI application."""

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from auditpulse_mvp.api.api_v1.auth import get_current_user
 from auditpulse_mvp.database.base import get_db_session
 from auditpulse_mvp.feedback.feedback_service import FeedbackRequest, FeedbackResponse, FeedbackService
+from auditpulse_mvp.database.models import Anomaly
 
 # Create router
 router = APIRouter()
