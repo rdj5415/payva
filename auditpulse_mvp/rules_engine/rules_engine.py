@@ -273,9 +273,7 @@ class RulesEngine:
         """Calculate an overall risk score for a transaction."""
         result = await self.evaluate(transaction)
         score = result.get("score", 0.0)
-        if not isinstance(score, float):
-            try:
-                score = float(score)
-            except Exception:
-                score = 0.0
-        return score
+        try:
+            return float(score)
+        except Exception:
+            return 0.0
