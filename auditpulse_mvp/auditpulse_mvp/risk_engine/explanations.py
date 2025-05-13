@@ -165,8 +165,8 @@ class GPTExplanationProvider(RiskExplanationProvider):
         Returns:
             str: Human-readable explanation for the anomaly
         """
-        # Check if GPT explanations are enabled
-        if not settings.enable_gpt_explanations or not self.api_key:
+        # Check if GPT explanations are enabled using getattr to safely access the attribute
+        if not getattr(settings, "enable_gpt_explanations", False) or not self.api_key:
             return super()._generate_explanation(request)
 
         try:
@@ -233,7 +233,7 @@ class GPTExplanationProvider(RiskExplanationProvider):
 
 
 # Singleton instance
-_explanation_provider = None
+_explanation_provider: Optional[RiskExplanationProvider] = None
 
 
 def get_explanation_provider() -> RiskExplanationProvider:
@@ -245,9 +245,13 @@ def get_explanation_provider() -> RiskExplanationProvider:
     global _explanation_provider
 
     if _explanation_provider is None:
-        if settings.enable_gpt_explanations:
+        # Check if GPT explanations are enabled in settings
+        # Default to False if attribute doesn't exist
+        enable_gpt = getattr(settings, "enable_gpt_explanations", False)
+        if enable_gpt:
             _explanation_provider = GPTExplanationProvider()
         else:
             _explanation_provider = RiskExplanationProvider()
 
+    assert _explanation_provider is not None
     return _explanation_provider
