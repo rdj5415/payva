@@ -385,10 +385,10 @@ class Notification(Base):
         PGUUID(), ForeignKey("users.id"), nullable=True
     )
     channel: Mapped[NotificationChannel] = mapped_column(
-        Enum(NotificationChannel), nullable=False
+        SQLEnum(NotificationChannel), nullable=False
     )
     status: Mapped[NotificationStatus] = mapped_column(
-        Enum(NotificationStatus), nullable=False, default=NotificationStatus.PENDING
+        SQLEnum(NotificationStatus), nullable=False, default=NotificationStatus.PENDING
     )
     title: Mapped[str] = mapped_column(String, nullable=False)
     message: Mapped[str] = mapped_column(String, nullable=False)
@@ -515,7 +515,7 @@ class SensitivityConfig(Base):
     tenant_id: Mapped[UUID] = mapped_column(
         PGUUID(), ForeignKey("tenants.id"), nullable=False
     )
-    anomaly_type: Mapped[AnomalyType] = mapped_column(Enum(AnomalyType), nullable=False)
+    anomaly_type: Mapped[AnomalyType] = mapped_column(SQLEnum(AnomalyType), nullable=False)
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
@@ -547,12 +547,12 @@ class Anomaly(Base):
     transaction_id: Mapped[Optional[UUID]] = mapped_column(
         PGUUID(), ForeignKey("transactions.id"), nullable=True
     )
-    anomaly_type: Mapped[AnomalyType] = mapped_column(Enum(AnomalyType), nullable=False)
+    anomaly_type: Mapped[AnomalyType] = mapped_column(SQLEnum(AnomalyType), nullable=False)
     status: Mapped[AnomalyStatus] = mapped_column(
-        Enum(AnomalyStatus), nullable=False, default=AnomalyStatus.PENDING
+        SQLEnum(AnomalyStatus), nullable=False, default=AnomalyStatus.NEW
     )
     risk_level: Mapped[AnomalyRiskLevel] = mapped_column(
-        Enum(AnomalyRiskLevel), nullable=False
+        SQLEnum(AnomalyRiskLevel), nullable=False
     )
     score: Mapped[float] = mapped_column(Float, nullable=False)
     explanation: Mapped[Optional[str]] = mapped_column(String, nullable=True)

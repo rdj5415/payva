@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class EmailNotificationProvider(NotificationProvider):
     """Email notification provider using SendGrid."""
 
-    def __init__(self, api_key: Optional[str] = None, from_email: str = None):
+    def __init__(self, api_key: Optional[str] = None, from_email: Optional[str] = None):
         """Initialize the email notification provider.
 
         Args:

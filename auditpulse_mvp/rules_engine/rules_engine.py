@@ -6,7 +6,7 @@ This module implements rule-based anomaly detection for financial transactions.
 import logging
 import statistics
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -261,15 +261,14 @@ class RulesEngine:
         """Determine anomaly type based on rule results."""
         result = await self.evaluate(transaction)
         for flag in result["flags"]:
-            if flag["rule_type"] == "amount_threshold":
-                enum_val = AnomalyType.LARGE_AMOUNT
-                return enum_val
-            elif flag["rule_type"] == "unapproved_vendor":
-                enum_val = AnomalyType.UNAPPROVED_VENDOR
-                return enum_val
-            elif flag["rule_type"] == "statistical_outlier":
-                enum_val = AnomalyType.UNUSUAL_AMOUNT
-                return enum_val
+            rule_type = flag["rule_type"]
+            if rule_type == "amount_threshold":
+                # Use type casting to help mypy understand this is the correct type
+                return cast(AnomalyType, AnomalyType.LARGE_AMOUNT)
+            elif rule_type == "unapproved_vendor":
+                return cast(AnomalyType, AnomalyType.UNAPPROVED_VENDOR)
+            elif rule_type == "statistical_outlier":
+                return cast(AnomalyType, AnomalyType.UNUSUAL_AMOUNT)
         return None
 
     async def score(self, transaction: Transaction) -> float:

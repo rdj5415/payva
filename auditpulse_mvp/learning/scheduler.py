@@ -178,3 +178,10 @@ async def get_feedback_learning_scheduler(
         _feedback_learning_scheduler = FeedbackLearningScheduler(db_session=db_session)
 
     return _feedback_learning_scheduler
+
+
+# Fix function parameters with Optional type
+async def update_rule_thresholds(
+    db_session: Optional[AsyncSession] = None,
+) -> None:
+    """Update rule thresholds based on feedback data."""

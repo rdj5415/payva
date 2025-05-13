@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import uuid
 
 from sqlalchemy import select
@@ -25,8 +25,8 @@ async def sync_plaid_transactions(
     institution_id: str,
     start_date: str,
     end_date: str,
-    db_session: AsyncSession = None,
-    settings: Settings = None,
+    db_session: Optional[AsyncSession] = None,
+    settings: Optional[Settings] = None,
 ) -> Dict[str, Any]:
     """Sync transactions from Plaid for a financial institution.
 

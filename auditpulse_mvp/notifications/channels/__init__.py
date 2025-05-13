@@ -8,6 +8,7 @@ from auditpulse_mvp.notifications.channels.email import EmailNotifier
 from auditpulse_mvp.notifications.channels.slack import SlackNotifier
 from auditpulse_mvp.notifications.channels.sms import SMSNotifier
 from auditpulse_mvp.notifications.channels.webhook import WebhookNotifier
+from auditpulse_mvp.notifications.channels.base import NotificationProvider
 
 
 class NotificationChannel(str, Enum):
@@ -29,7 +30,7 @@ class NotificationChannelFactory:
             settings: Application settings
         """
         self.settings = settings
-        self._channels = {}
+        self._channels: Dict[str, Type[NotificationProvider]] = {}
 
     def get_channel(self, channel_type: NotificationChannel):
         """Get or create a notification channel instance.
@@ -64,3 +65,24 @@ class NotificationChannelFactory:
             return WebhookNotifier(self.settings)
         else:
             raise ValueError(f"Unsupported notification channel: {channel_type}")
+
+
+_channels: Dict[str, Type[NotificationProvider]] = {
+    "email": EmailNotifier,
+    "slack": SlackNotifier,
+    "webhook": WebhookNotifier,
+}
+
+
+def get_provider(provider_type: str) -> Type[NotificationProvider]:
+    """Get a notification provider by type.
+
+    Args:
+        provider_type: The type of provider to get
+
+    Returns:
+        The provider class
+    """
+    if provider_type not in _channels:
+        raise ValueError(f"Unsupported notification provider: {provider_type}")
+    return _channels[provider_type]

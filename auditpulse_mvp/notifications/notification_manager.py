@@ -187,7 +187,7 @@ class NotificationManager:
         recipients: List[NotificationRecipient],
         template_data: Dict[str, Any],
         priority: NotificationPriority = NotificationPriority.MEDIUM,
-        channels: List[NotificationChannel] = None,
+        channels: Optional[List[NotificationChannel]] = None,
     ) -> Dict[str, Any]:
         """Send a notification to multiple recipients.
 

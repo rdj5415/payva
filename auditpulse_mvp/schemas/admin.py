@@ -3,7 +3,7 @@
 This module defines the request and response schemas for the admin API.
 """
 
-import datetime
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 from enum import Enum
 
@@ -55,8 +55,8 @@ class TenantRead(TenantBase):
 
     id: UUID4
     is_active: bool
-    created_at: datetime.datetime
-    updated_at: Optional[datetime.datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
     settings: Optional[Dict[str, Any]] = None
     risk_settings: Optional[Dict[str, Any]] = None
 
@@ -101,8 +101,8 @@ class UserRead(UserBase):
     id: UUID4
     tenant_id: UUID4
     is_active: bool
-    created_at: datetime.datetime
-    updated_at: Optional[datetime.datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
     notification_preferences: Optional[Dict[str, Any]] = None
 
     class Config:
@@ -229,8 +229,8 @@ class TransactionFilter(BaseModel):
     """Schema for transaction filtering."""
 
     tenant_id: UUID4
-    start_date: Optional[datetime.datetime] = None
-    end_date: Optional[datetime.datetime] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
     min_amount: Optional[float] = None
     max_amount: Optional[float] = None
     skip: int = 0
@@ -254,8 +254,8 @@ class AnomalyFilter(BaseModel):
     is_resolved: Optional[bool] = None
     anomaly_type: Optional[str] = None
     min_score: Optional[float] = None
-    start_date: Optional[datetime.datetime] = None
-    end_date: Optional[datetime.datetime] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
     skip: int = 0
     limit: int = 100
 
