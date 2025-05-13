@@ -5,7 +5,7 @@ from various institutions.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import plaid
@@ -55,14 +55,14 @@ class PlaidClient:
             str: Plaid API environment URL
         """
         if self.settings.PLAID_ENVIRONMENT == "sandbox":
-            return plaid.Environment.Sandbox
+            return str(plaid.Environment.Sandbox)
         elif self.settings.PLAID_ENVIRONMENT == "development":
-            return plaid.Environment.Development
+            return str(plaid.Environment.Development)
         elif self.settings.PLAID_ENVIRONMENT == "production":
-            return plaid.Environment.Production
+            return str(plaid.Environment.Production)
         else:
             # Default to sandbox
-            return plaid.Environment.Sandbox
+            return str(plaid.Environment.Sandbox)
 
     async def create_link_token(self, user_id: str) -> Dict[str, Any]:
         """Create a Plaid Link token for connecting bank accounts.
@@ -76,7 +76,7 @@ class PlaidClient:
         try:
             request = LinkTokenCreateRequest(
                 user=LinkTokenCreateRequestUser(client_user_id=user_id),
-                client_name=self.settings.APP_NAME,
+                client_name=self.settings.PROJECT_NAME,
                 products=[Products("transactions")],
                 country_codes=[CountryCode("US")],
                 language="en",
@@ -84,7 +84,7 @@ class PlaidClient:
 
             # Create link token
             response = self.client.link_token_create(request)
-            return response.to_dict()
+            return dict(response.to_dict())
 
         except plaid.ApiException as e:
             logger.error(f"Error creating link token: {e}")
@@ -103,7 +103,7 @@ class PlaidClient:
             response = self.client.item_public_token_exchange(
                 {"public_token": public_token}
             )
-            return response.to_dict()
+            return dict(response.to_dict())
 
         except plaid.ApiException as e:
             logger.error(f"Error exchanging public token: {e}")
@@ -121,7 +121,7 @@ class PlaidClient:
         try:
             request = AccountsGetRequest(access_token=access_token)
             response = self.client.accounts_get(request)
-            return response.to_dict()
+            return dict(response.to_dict())
 
         except plaid.ApiException as e:
             logger.error(f"Error getting accounts: {e}")
@@ -139,7 +139,7 @@ class PlaidClient:
         try:
             request = ItemGetRequest(access_token=access_token)
             response = self.client.item_get(request)
-            return response.to_dict()
+            return dict(response.to_dict())
 
         except plaid.ApiException as e:
             logger.error(f"Error getting item: {e}")
@@ -190,7 +190,7 @@ class PlaidClient:
 
             # Get transactions
             response = self.client.transactions_get(request)
-            return response.to_dict()
+            return dict(response.to_dict())
 
         except plaid.ApiException as e:
             logger.error(f"Error getting transactions: {e}")
