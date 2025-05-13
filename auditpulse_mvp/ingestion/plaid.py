@@ -91,11 +91,11 @@ class PlaidClient:
             str: The Plaid API host URL.
         """
         if environment == "production":
-            return plaid.Environment.Production
+            return str(plaid.Environment.Production)
         elif environment == "development":
-            return plaid.Environment.Development
+            return str(plaid.Environment.Development)
         else:
-            return plaid.Environment.Sandbox
+            return str(plaid.Environment.Sandbox)
 
     @retry(
         stop=stop_after_attempt(3),
