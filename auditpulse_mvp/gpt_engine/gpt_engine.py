@@ -127,12 +127,12 @@ class GPTEngine:
         temperature: float = DEFAULT_TEMPERATURE,
         max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> str:
-        """Call the OpenAI API with a prompt.
+        """Call the OpenAI API with retry logic.
 
         Args:
             prompt: The prompt to send to the API.
-            model: The model to use.
-            temperature: The sampling temperature to use.
+            model: The model to use (e.g., "gpt-4").
+            temperature: The temperature to use.
             max_tokens: The maximum number of tokens to generate.
 
         Returns:
@@ -142,7 +142,8 @@ class GPTEngine:
             HTTPException: If there's an error calling the API.
         """
         try:
-            response = await self.client.chat.completions.create(
+            client = openai.AsyncOpenAI(api_key=self.client.api_key)
+            response = await client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": "You are a financial AI assistant."},
@@ -154,8 +155,9 @@ class GPTEngine:
                 stop=None,
             )
 
-            # Extract the generated text
-            return response.choices[0].message.content.strip()
+            # Extract the generated text and ensure it's not None before calling strip()
+            content = response.choices[0].message.content
+            return content.strip() if content is not None else ""
 
         except (
             openai.RateLimitError,
