@@ -64,7 +64,7 @@ class ModelVersion(Base):
 
     __tablename__ = "model_versions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(UUID(), primary_key=True, default=uuid4)
     model_type = Column(String, nullable=False, index=True)
     version = Column(String, nullable=False)
     model_data = Column(JSON, nullable=False)
@@ -90,7 +90,7 @@ class ModelPerformance(Base):
 
     __tablename__ = "model_performance"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(UUID(), primary_key=True, default=uuid4)
     model_type = Column(String, nullable=False, index=True)
     version = Column(String, nullable=False)
     metrics = Column(JSON, nullable=False)
@@ -112,9 +112,9 @@ class FinancialInstitution(Base):
 
     __tablename__ = "financial_institutions"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(PGUUID(), primary_key=True, default=uuid4)
     user_id = Column(
-        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+        PGUUID(), ForeignKey("users.id"), nullable=False, index=True
     )
     name = Column(String, nullable=False)
     plaid_access_token = Column(String, nullable=False)
@@ -137,12 +137,12 @@ class FinancialAccount(Base):
 
     __tablename__ = "financial_accounts"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(PGUUID(), primary_key=True, default=uuid4)
     user_id = Column(
-        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+        PGUUID(), ForeignKey("users.id"), nullable=False, index=True
     )
     institution_id = Column(
-        PGUUID(as_uuid=True), ForeignKey("financial_institutions.id"), nullable=False
+        PGUUID(), ForeignKey("financial_institutions.id"), nullable=False
     )
     plaid_account_id = Column(String, nullable=False, index=True)
     name = Column(String, nullable=False)
@@ -169,9 +169,9 @@ class FinancialTransaction(Base):
 
     __tablename__ = "financial_transactions"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(PGUUID(), primary_key=True, default=uuid4)
     user_id = Column(
-        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+        PGUUID(), ForeignKey("users.id"), nullable=False, index=True
     )
     account_id = Column(String, nullable=False, index=True)
     transaction_id = Column(String, nullable=False, unique=True, index=True)
@@ -309,12 +309,12 @@ class Anomaly(Base):
 
     __tablename__ = "anomalies"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(PGUUID(), primary_key=True, default=uuid4)
     tenant_id = Column(
-        PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        PGUUID(), ForeignKey("tenants.id"), nullable=False, index=True
     )
     transaction_id = Column(
-        PGUUID(as_uuid=True), ForeignKey("financial_transactions.id"), nullable=True
+        PGUUID(), ForeignKey("financial_transactions.id"), nullable=True
     )
     anomaly_type = Column(SQLEnum(AnomalyType), nullable=False)
     status = Column(SQLEnum(AnomalyStatus), nullable=False, default=AnomalyStatus.NEW)
@@ -336,7 +336,7 @@ class Tenant(Base):
 
     __tablename__ = "tenants"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(PGUUID(), primary_key=True, default=uuid4)
     name = Column(String, nullable=False)
     api_key = Column(String, nullable=False, unique=True)
     is_active = Column(Boolean, nullable=False, default=True)
@@ -354,8 +354,8 @@ class TenantConfiguration(Base):
 
     __tablename__ = "tenant_configurations"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    id = Column(PGUUID(), primary_key=True, default=uuid4)
+    tenant_id = Column(PGUUID(), ForeignKey("tenants.id"), nullable=False)
     key = Column(String, nullable=False)
     value = Column(JSON, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -370,9 +370,9 @@ class Notification(Base):
 
     __tablename__ = "notifications"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    user_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    id = Column(PGUUID(), primary_key=True, default=uuid4)
+    tenant_id = Column(PGUUID(), ForeignKey("tenants.id"), nullable=False)
+    user_id = Column(PGUUID(), ForeignKey("users.id"), nullable=False)
     channel = Column(SQLEnum(NotificationChannel), nullable=False)
     status = Column(
         SQLEnum(NotificationStatus), nullable=False, default=NotificationStatus.PENDING
@@ -394,8 +394,8 @@ class ErrorLog(Base):
 
     __tablename__ = "error_logs"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True)
+    id = Column(PGUUID(), primary_key=True, default=uuid4)
+    tenant_id = Column(PGUUID(), ForeignKey("tenants.id"), nullable=True)
     error_type = Column(String, nullable=False)
     message = Column(String, nullable=False)
     stack_trace = Column(String, nullable=True)
@@ -411,7 +411,7 @@ class SystemMetric(Base):
 
     __tablename__ = "system_metrics"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(PGUUID(), primary_key=True, default=uuid4)
     metric_name = Column(String, nullable=False)
     metric_value = Column(Float, nullable=False)
     metadata = Column(JSON, nullable=True)
@@ -423,12 +423,12 @@ class Transaction(Base):
 
     __tablename__ = "transactions"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(PGUUID(), primary_key=True, default=uuid4)
     user_id = Column(
-        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+        PGUUID(), ForeignKey("users.id"), nullable=False, index=True
     )
     account_id = Column(
-        PGUUID(as_uuid=True), ForeignKey("financial_accounts.id"), nullable=False
+        PGUUID(), ForeignKey("financial_accounts.id"), nullable=False
     )
     amount = Column(Float, nullable=False)
     date = Column(DateTime, nullable=False, index=True)
@@ -454,8 +454,8 @@ class Transaction(Base):
 
 class SensitivityConfig(Base):
     __tablename__ = "sensitivity_configs"
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    id = Column(PGUUID(), primary_key=True, default=uuid4)
+    tenant_id = Column(PGUUID(), ForeignKey("tenants.id"), nullable=False)
     config = Column(JSON, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
