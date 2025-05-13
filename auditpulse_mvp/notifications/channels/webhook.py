@@ -4,6 +4,7 @@ import logging
 import json
 import aiohttp
 from typing import Dict, Any, Optional, Union
+from aiohttp import ClientTimeout
 
 from auditpulse_mvp.utils.settings import Settings
 
@@ -44,30 +45,33 @@ class WebhookNotifier:
         Returns:
             Dict[str, Any]: Send result
         """
+        if not webhook_url:
+            logger.error("No webhook URL provided")
+            return {
+                "status": "error",
+                "error": "No webhook URL provided",
+            }
+
+        if not headers:
+            headers = {}
+
+        # Set default content type if not specified
+        if "Content-Type" not in headers:
+            headers["Content-Type"] = "application/json"
+
+        # Add custom headers from settings
+        if hasattr(self.settings, "webhook_headers") and self.settings.webhook_headers:
+            for key, value in self.settings.webhook_headers.items():
+                headers[key] = value
+
+        auth_tuple = None
         try:
-            if not webhook_url:
-                logger.error("Webhook URL is required")
-                return {
-                    "status": "error",
-                    "webhook_url": webhook_url,
-                    "error": "Webhook URL is required",
-                }
-
-            # Set default headers if not provided
-            if not headers:
-                headers = {
-                    "Content-Type": "application/json",
-                    "User-Agent": "Payva-Notifier/1.0",
-                }
-
-            # Use default timeout if not specified
-            if timeout is None:
-                timeout = self.default_timeout
-
-            # Prepare auth if provided
-            auth_tuple = None
+            # Setup authentication if provided
             if auth and "username" in auth and "password" in auth:
                 auth_tuple = aiohttp.BasicAuth(auth["username"], auth["password"])
+
+            # Convert timeout to ClientTimeout object if provided
+            client_timeout = ClientTimeout(total=timeout) if timeout is not None else None
 
             # Send webhook request
             async with aiohttp.ClientSession() as session:
@@ -77,7 +81,7 @@ class WebhookNotifier:
                     webhook_url,
                     json=payload,
                     headers=headers,
-                    timeout=timeout,
+                    timeout=client_timeout,
                     auth=auth_tuple,
                 ) as response:
                     response_text = await response.text()

@@ -80,14 +80,25 @@ class User(Base):
         """Get the default notification channels for different notification types."""
         if not self.notification_preferences:
             # Default preferences
-            return {
+            default_prefs: Dict[str, List[str]] = {
                 "anomaly_detection": ["email"],
                 "system_alert": ["email"],
                 "model_performance": ["email"],
                 "account_security": ["email"],
                 "scheduled_reports": ["email"],
             }
-        return self.notification_preferences.get("channels", {})
+            return default_prefs
+        
+        channels_data = self.notification_preferences.get("channels", {})
+        # Ensure the return type is correctly annotated
+        result: Dict[str, List[str]] = {}
+        for key, value in channels_data.items():
+            if isinstance(value, list):
+                result[key] = value
+            else:
+                # If the value is not a list, convert it to a list with one item
+                result[key] = [str(value)]
+        return result
 
     def get_channels_for_notification_type(self, notification_type: str) -> List[str]:
         """Get the channels for a specific notification type."""
@@ -103,7 +114,7 @@ class Role(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, unique=True, nullable=False)
     description = Column(String, nullable=True)
-    permissions = Column(ARRAY(String), default=list, nullable=False)
+    permissions = Column(ARRAY(String), default=list, nullable=False)  # type: ignore
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
