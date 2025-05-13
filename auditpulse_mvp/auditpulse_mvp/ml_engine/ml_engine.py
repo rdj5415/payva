@@ -481,7 +481,7 @@ class MLEngine:
             
             # Clip to ensure it's between 0 and 1
             return max(0.0, min(1.0, anomaly_score))
-        except HTTPException:
+        except HTTPException as e:
             # If no model exists, return a neutral score
             if "404" in str(e):
                 logger.warning(f"No model found for tenant {tenant_id}, returning neutral score")

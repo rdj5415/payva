@@ -7,9 +7,11 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 import uuid
+import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from auditpulse_mvp.api.deps import get_current_tenant, get_current_user, get_db
 from auditpulse_mvp.api.api_v1.api import api_router
