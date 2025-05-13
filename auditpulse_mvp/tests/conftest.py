@@ -9,16 +9,15 @@ from typing import AsyncGenerator, Generator
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
 from auditpulse_mvp.database.base import Base
 from auditpulse_mvp.utils.settings import settings
 
 
-# Test database URL - use test database or in-memory SQLite for testing
-TEST_DATABASE_URL = settings.DATABASE_TEST_URL or "sqlite+aiosqlite:///:memory:"
+# Test database URL - ensure it's a string
+TEST_DATABASE_URL = str(settings.DATABASE_TEST_URL or "sqlite+aiosqlite:///:memory:")
 
 
 @pytest.fixture(scope="session")
@@ -72,8 +71,8 @@ async def db_session(db_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, Non
     connection = await db_engine.connect()
     transaction = await connection.begin()
 
-    async_session = sessionmaker(
-        connection, expire_on_commit=False, class_=AsyncSession
+    async_session = async_sessionmaker(
+        bind=connection, expire_on_commit=False, class_=AsyncSession
     )
     session = async_session()
 
