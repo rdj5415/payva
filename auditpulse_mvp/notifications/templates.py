@@ -46,7 +46,6 @@ class TemplateManager:
         Returns:
             Optional[Dict[str, Any]]: Template data if found
         """
-        global template_cache
 
         if not refresh and template_id in template_cache:
             return template_cache[template_id]
