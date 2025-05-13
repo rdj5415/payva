@@ -2,6 +2,7 @@
 
 This module provides fixtures for testing the Risk Engine.
 """
+
 import asyncio
 import os
 import sys
@@ -12,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 # Add parent directory to path to allow imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 # Import from auditpulse_mvp
 from auditpulse_mvp.database.base import Base
@@ -39,7 +40,7 @@ TestingSessionLocal = sessionmaker(
 @pytest.fixture(scope="session")
 def event_loop() -> Generator:
     """Create an event loop for tests.
-    
+
     Returns:
         Generator: The event loop.
     """
@@ -51,17 +52,17 @@ def event_loop() -> Generator:
 @pytest.fixture(scope="session")
 async def setup_database() -> None:
     """Set up the test database.
-    
+
     Returns:
         None
     """
     # Create all tables
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     # Clean up after tests
     yield
-    
+
     # Drop all tables
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
@@ -70,10 +71,10 @@ async def setup_database() -> None:
 @pytest.fixture(scope="function")
 async def db_session(setup_database) -> AsyncGenerator[AsyncSession, None]:
     """Get a database session for testing.
-    
+
     Args:
         setup_database: Fixture to set up the database.
-        
+
     Returns:
         AsyncGenerator[AsyncSession, None]: The database session.
     """
@@ -83,6 +84,6 @@ async def db_session(setup_database) -> AsyncGenerator[AsyncSession, None]:
         async with session.begin():
             # Use a nested transaction for tests
             yield session
-            
+
             # Rollback at the end of each test
-            await session.rollback() 
+            await session.rollback()

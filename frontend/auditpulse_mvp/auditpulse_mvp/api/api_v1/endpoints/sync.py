@@ -2,19 +2,32 @@
 
 This module provides API endpoints for synchronizing data from external systems.
 """
+
 import asyncio
 import logging
 from enum import Enum
 from typing import Dict, Optional, List, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Background, BackgroundTasks
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    status,
+    Background,
+    BackgroundTasks,
+)
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auditpulse_mvp.api.deps import (
-    get_current_user, require_admin, get_current_tenant, log_audit_action, AuditAction
+    get_current_user,
+    require_admin,
+    get_current_tenant,
+    log_audit_action,
+    AuditAction,
 )
 from auditpulse_mvp.database.models import User, Tenant, TenantConfiguration
 from auditpulse_mvp.database.session import get_db
@@ -27,6 +40,7 @@ router = APIRouter()
 
 class SyncStatus(str, Enum):
     """Status of a data synchronization job."""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -35,46 +49,45 @@ class SyncStatus(str, Enum):
 
 class SyncRequest(BaseModel):
     """Base model for sync requests."""
+
     force_full_sync: bool = Field(
-        False, 
-        description="Force a full sync instead of an incremental sync"
+        False, description="Force a full sync instead of an incremental sync"
     )
 
 
 class QuickBooksSyncRequest(SyncRequest):
     """Request model for QuickBooks sync."""
+
     company_id: Optional[str] = Field(
-        None, 
-        description="QuickBooks company ID to sync (if different from configured default)"
+        None,
+        description="QuickBooks company ID to sync (if different from configured default)",
     )
     start_date: Optional[str] = Field(
-        None, 
-        description="Start date for sync in ISO format (YYYY-MM-DD)"
+        None, description="Start date for sync in ISO format (YYYY-MM-DD)"
     )
     end_date: Optional[str] = Field(
-        None, 
-        description="End date for sync in ISO format (YYYY-MM-DD)"
+        None, description="End date for sync in ISO format (YYYY-MM-DD)"
     )
 
 
 class PlaidSyncRequest(SyncRequest):
     """Request model for Plaid sync."""
+
     account_ids: Optional[List[str]] = Field(
-        None, 
-        description="Specific account IDs to sync (if not provided, all configured accounts will be synced)"
+        None,
+        description="Specific account IDs to sync (if not provided, all configured accounts will be synced)",
     )
     start_date: Optional[str] = Field(
-        None, 
-        description="Start date for sync in ISO format (YYYY-MM-DD)"
+        None, description="Start date for sync in ISO format (YYYY-MM-DD)"
     )
     end_date: Optional[str] = Field(
-        None, 
-        description="End date for sync in ISO format (YYYY-MM-DD)"
+        None, description="End date for sync in ISO format (YYYY-MM-DD)"
     )
 
 
 class SyncResponse(BaseModel):
     """Response model for sync requests."""
+
     success: bool
     message: str
     sync_id: Optional[UUID] = None
@@ -91,7 +104,7 @@ async def trigger_quickbooks_sync(
     force_full_sync: bool = False,
 ) -> None:
     """Trigger a QuickBooks sync in the background.
-    
+
     Args:
         tenant_id: Tenant ID
         user_id: User ID who triggered the sync
@@ -104,28 +117,28 @@ async def trigger_quickbooks_sync(
         f"Starting QuickBooks sync for tenant {tenant_id}, "
         f"company_id={company_id}, force_full_sync={force_full_sync}"
     )
-    
+
     # In a real implementation, this would use a more robust background task system
     # like Celery or similar. For now, we'll just simulate the process with delays.
-    
+
     try:
         # Simulate connecting to QuickBooks API
         await asyncio.sleep(2)
-        
+
         # Simulate fetching and processing data
         logger.info(f"Fetching QuickBooks data for tenant {tenant_id}")
         await asyncio.sleep(3)
-        
+
         # Simulate storing data in database
         logger.info(f"Storing QuickBooks data for tenant {tenant_id}")
         await asyncio.sleep(1)
-        
+
         # Log successful completion
         logger.info(f"QuickBooks sync completed successfully for tenant {tenant_id}")
-        
+
         # In a real implementation, this would update the sync status in the database
         # and potentially trigger anomaly detection on the new data
-        
+
     except Exception as e:
         logger.error(f"Error during QuickBooks sync for tenant {tenant_id}: {str(e)}")
         # In a real implementation, this would update the sync status to FAILED
@@ -141,7 +154,7 @@ async def trigger_plaid_sync(
     force_full_sync: bool = False,
 ) -> None:
     """Trigger a Plaid sync in the background.
-    
+
     Args:
         tenant_id: Tenant ID
         user_id: User ID who triggered the sync
@@ -154,28 +167,28 @@ async def trigger_plaid_sync(
         f"Starting Plaid sync for tenant {tenant_id}, "
         f"accounts={account_ids}, force_full_sync={force_full_sync}"
     )
-    
+
     # In a real implementation, this would use a more robust background task system
     # like Celery or similar. For now, we'll just simulate the process with delays.
-    
+
     try:
         # Simulate connecting to Plaid API
         await asyncio.sleep(1)
-        
+
         # Simulate fetching and processing data
         logger.info(f"Fetching Plaid data for tenant {tenant_id}")
         await asyncio.sleep(2)
-        
+
         # Simulate storing data in database
         logger.info(f"Storing Plaid data for tenant {tenant_id}")
         await asyncio.sleep(1)
-        
+
         # Log successful completion
         logger.info(f"Plaid sync completed successfully for tenant {tenant_id}")
-        
+
         # In a real implementation, this would update the sync status in the database
         # and potentially trigger anomaly detection on the new data
-        
+
     except Exception as e:
         logger.error(f"Error during Plaid sync for tenant {tenant_id}: {str(e)}")
         # In a real implementation, this would update the sync status to FAILED
@@ -195,42 +208,41 @@ async def sync_quickbooks(
     current_tenant: Tenant = Depends(get_current_tenant),
 ) -> SyncResponse:
     """Sync data from QuickBooks.
-    
+
     Args:
         request: QuickBooks sync request
         background_tasks: FastAPI background tasks manager
         db: Database session
         current_user: Current authenticated user
         current_tenant: Current tenant
-        
+
     Returns:
         SyncResponse: Sync response with status
-        
+
     Raises:
         HTTPException: If QuickBooks integration is not configured for the tenant
     """
     # Check if tenant has QuickBooks configured
-    query = (
-        select(TenantConfiguration)
-        .where(
-            TenantConfiguration.tenant_id == current_tenant.id,
-            TenantConfiguration.key == "quickbooks_config"
-        )
+    query = select(TenantConfiguration).where(
+        TenantConfiguration.tenant_id == current_tenant.id,
+        TenantConfiguration.key == "quickbooks_config",
     )
-    
+
     result = await db.execute(query)
     config = result.scalar_one_or_none()
-    
+
     # In a real implementation, this would check if the tenant has valid QuickBooks credentials
     if not config:
         # For the MVP, we'll just log a warning and proceed with mock data
-        logger.warning(f"No QuickBooks configuration found for tenant {current_tenant.id}")
+        logger.warning(
+            f"No QuickBooks configuration found for tenant {current_tenant.id}"
+        )
         # In a production environment, you might want to raise an exception instead:
         # raise HTTPException(
         #     status_code=status.HTTP_400_BAD_REQUEST,
         #     detail="QuickBooks integration is not configured for this tenant.",
         # )
-    
+
     # Schedule the background task
     background_tasks.add_task(
         trigger_quickbooks_sync,
@@ -241,7 +253,7 @@ async def sync_quickbooks(
         end_date=request.end_date,
         force_full_sync=request.force_full_sync,
     )
-    
+
     # Log audit action
     await log_audit_action(
         db=db,
@@ -258,7 +270,7 @@ async def sync_quickbooks(
             },
         ),
     )
-    
+
     # Return response
     return SyncResponse(
         success=True,
@@ -284,32 +296,29 @@ async def sync_plaid(
     current_tenant: Tenant = Depends(get_current_tenant),
 ) -> SyncResponse:
     """Sync data from Plaid.
-    
+
     Args:
         request: Plaid sync request
         background_tasks: FastAPI background tasks manager
         db: Database session
         current_user: Current authenticated user
         current_tenant: Current tenant
-        
+
     Returns:
         SyncResponse: Sync response with status
-        
+
     Raises:
         HTTPException: If Plaid integration is not configured for the tenant
     """
     # Check if tenant has Plaid configured
-    query = (
-        select(TenantConfiguration)
-        .where(
-            TenantConfiguration.tenant_id == current_tenant.id,
-            TenantConfiguration.key == "plaid_config"
-        )
+    query = select(TenantConfiguration).where(
+        TenantConfiguration.tenant_id == current_tenant.id,
+        TenantConfiguration.key == "plaid_config",
     )
-    
+
     result = await db.execute(query)
     config = result.scalar_one_or_none()
-    
+
     # In a real implementation, this would check if the tenant has valid Plaid credentials
     if not config:
         # For the MVP, we'll just log a warning and proceed with mock data
@@ -319,7 +328,7 @@ async def sync_plaid(
         #     status_code=status.HTTP_400_BAD_REQUEST,
         #     detail="Plaid integration is not configured for this tenant.",
         # )
-    
+
     # Schedule the background task
     background_tasks.add_task(
         trigger_plaid_sync,
@@ -330,7 +339,7 @@ async def sync_plaid(
         end_date=request.end_date,
         force_full_sync=request.force_full_sync,
     )
-    
+
     # Log audit action
     await log_audit_action(
         db=db,
@@ -347,7 +356,7 @@ async def sync_plaid(
             },
         ),
     )
-    
+
     # Return response
     return SyncResponse(
         success=True,
@@ -357,4 +366,4 @@ async def sync_plaid(
             "estimated_completion_time": "3-5 minutes",
             "accounts": request.account_ids or "all configured accounts",
         },
-    ) 
+    )

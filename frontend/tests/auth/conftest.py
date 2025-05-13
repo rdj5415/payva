@@ -1,4 +1,5 @@
 """Test configuration for auth module."""
+
 import asyncio
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -37,9 +38,9 @@ async def setup_database():
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield
-    
+
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
@@ -49,4 +50,4 @@ async def db_session(setup_database):
     """Create a fresh database session for a test."""
     async with TestingSessionLocal() as session:
         yield session
-        await session.rollback() 
+        await session.rollback()

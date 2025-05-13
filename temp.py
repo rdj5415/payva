@@ -258,23 +258,22 @@ class RulesEngine:
         }
 
     async def get_anomaly_type(self, transaction: Transaction) -> Optional[AnomalyType]:
-        """Determine anomaly type based on rule results.
-
-        Args:
-            transaction: Transaction to evaluate
-
-        Returns:
-            AnomalyType or None
-        """
+        """Determine anomaly type based on rule results."""
         result = await self.evaluate(transaction)
-
-        # Check for specific rule types
         for flag in result["flags"]:
             if flag["rule_type"] == "amount_threshold":
                 return AnomalyType.LARGE_AMOUNT
             elif flag["rule_type"] == "unapproved_vendor":
                 return AnomalyType.UNAPPROVED_VENDOR
             elif flag["rule_type"] == "statistical_outlier":
-                return AnomalyType.STATISTICAL_OUTLIER
-
+                return AnomalyType.UNUSUAL_AMOUNT
         return None
+
+    async def score(self, transaction: Transaction) -> float:
+        """Calculate an overall risk score for a transaction."""
+        result = await self.evaluate(transaction)
+        score = result.get("score", 0.0)
+        try:
+            return float(score)
+        except Exception:
+            return 0.0

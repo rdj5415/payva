@@ -3,6 +3,7 @@
 This module defines the FastAPI endpoints for administrative functions. This includes
 system status retrieval, tenant management, and user management.
 """
+
 import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -11,7 +12,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import UUID4, EmailStr
 
-from auditpulse_mvp.api.dependencies import get_current_superuser, get_current_user, get_db
+from auditpulse_mvp.api.dependencies import (
+    get_current_superuser,
+    get_current_user,
+    get_db,
+)
 from auditpulse_mvp.database.session import get_db_session
 from auditpulse_mvp.database.models import User, Tenant
 from auditpulse_mvp.schemas.user import UserCreate, UserResponse
@@ -20,12 +25,17 @@ from auditpulse_mvp.admin.system_admin import SystemAdmin
 from auditpulse_mvp.admin.tenant_admin import TenantAdmin
 from auditpulse_mvp.admin.models_admin import TransactionAdmin, AnomalyAdmin, ModelAdmin
 from auditpulse_mvp.schemas.admin import (
-    SystemTaskResponse, SystemStatusResponse,
-    TransactionStatsResponse, AnomalyStatsResponse,
+    SystemTaskResponse,
+    SystemStatusResponse,
+    TransactionStatsResponse,
+    AnomalyStatsResponse,
 )
 from auditpulse_mvp.schemas.model import (
-    ModelVersionResponse, ModelVersionCreate, ModelPerformanceResponse,
-    ModelValidationRequest, ModelValidationResponse
+    ModelVersionResponse,
+    ModelVersionCreate,
+    ModelPerformanceResponse,
+    ModelValidationRequest,
+    ModelValidationResponse,
 )
 
 
@@ -43,11 +53,11 @@ async def get_system_status(
     current_user: User = Depends(get_current_superuser),
 ):
     """Get system status information.
-    
+
     Args:
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         System status data.
     """
@@ -62,12 +72,12 @@ async def run_system_task(
     current_user: User = Depends(get_current_superuser),
 ):
     """Run a system maintenance task.
-    
+
     Args:
         task_name: Name of the task to run.
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         Task execution result.
     """
@@ -84,13 +94,13 @@ async def get_tenants(
     current_user: User = Depends(get_current_superuser),
 ):
     """Get all tenants with pagination.
-    
+
     Args:
         skip: Number of records to skip.
         limit: Maximum number of records to return.
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         List of tenants.
     """
@@ -98,19 +108,21 @@ async def get_tenants(
     return await tenant_admin.get_all(skip=skip, limit=limit)
 
 
-@router.post("/tenants", response_model=TenantResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/tenants", response_model=TenantResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_tenant(
     tenant_data: TenantCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_superuser),
 ):
     """Create a new tenant.
-    
+
     Args:
         tenant_data: Tenant data.
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         Created tenant.
     """
@@ -125,24 +137,24 @@ async def get_tenant(
     current_user: User = Depends(get_current_superuser),
 ):
     """Get a tenant by ID.
-    
+
     Args:
         tenant_id: Tenant ID.
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         Tenant details.
     """
     tenant_admin = TenantAdmin(db)
     tenant = await tenant_admin.get_by_id(tenant_id)
-    
+
     if not tenant:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Tenant not found",
         )
-    
+
     return tenant
 
 
@@ -154,25 +166,25 @@ async def update_tenant(
     current_user: User = Depends(get_current_superuser),
 ):
     """Update a tenant.
-    
+
     Args:
         tenant_id: Tenant ID.
         tenant_data: Updated tenant data.
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         Updated tenant.
     """
     tenant_admin = TenantAdmin(db)
     tenant = await tenant_admin.update(tenant_id, tenant_data)
-    
+
     if not tenant:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Tenant not found",
         )
-    
+
     return tenant
 
 
@@ -183,7 +195,7 @@ async def delete_tenant(
     current_user: User = Depends(get_current_superuser),
 ):
     """Delete a tenant.
-    
+
     Args:
         tenant_id: Tenant ID.
         db: Database session.
@@ -191,7 +203,7 @@ async def delete_tenant(
     """
     tenant_admin = TenantAdmin(db)
     result = await tenant_admin.delete(tenant_id)
-    
+
     if not result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -200,7 +212,11 @@ async def delete_tenant(
 
 
 # User management for tenants (superuser only)
-@router.post("/tenants/{tenant_id}/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/tenants/{tenant_id}/users",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_tenant_user(
     tenant_id: UUID4,
     user_data: UserCreate,
@@ -208,13 +224,13 @@ async def create_tenant_user(
     current_user: User = Depends(get_current_superuser),
 ):
     """Create a user for a tenant.
-    
+
     Args:
         tenant_id: Tenant ID.
         user_data: User data.
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         Created user.
     """
@@ -231,14 +247,14 @@ async def get_tenant_users(
     current_user: User = Depends(get_current_superuser),
 ):
     """Get all users for a tenant.
-    
+
     Args:
         tenant_id: Tenant ID.
         skip: Number of records to skip.
         limit: Maximum number of records to return.
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         List of users.
     """
@@ -255,13 +271,13 @@ async def get_transaction_stats(
     current_user: User = Depends(get_current_user),
 ):
     """Get transaction statistics for the current user's tenant.
-    
+
     Args:
         start_date: Optional start date for filtering.
         end_date: Optional end date for filtering.
         db: Database session.
         current_user: Current user.
-        
+
     Returns:
         Transaction statistics.
     """
@@ -270,14 +286,14 @@ async def get_transaction_stats(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User is not associated with a tenant",
         )
-    
+
     transaction_admin = TransactionAdmin(db)
     stats = await transaction_admin.get_stats(
         tenant_id=current_user.tenant_id,
         start_date=start_date,
         end_date=end_date,
     )
-    
+
     return stats
 
 
@@ -290,13 +306,13 @@ async def get_anomaly_stats(
     current_user: User = Depends(get_current_user),
 ):
     """Get anomaly statistics for the current user's tenant.
-    
+
     Args:
         start_date: Optional start date for filtering.
         end_date: Optional end date for filtering.
         db: Database session.
         current_user: Current user.
-        
+
     Returns:
         Anomaly statistics.
     """
@@ -305,14 +321,14 @@ async def get_anomaly_stats(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User is not associated with a tenant",
         )
-    
+
     anomaly_admin = AnomalyAdmin(db)
     stats = await anomaly_admin.get_stats(
         tenant_id=current_user.tenant_id,
         start_date=start_date,
         end_date=end_date,
     )
-    
+
     return stats
 
 
@@ -323,11 +339,11 @@ async def get_model_types(
     current_user: User = Depends(get_current_superuser),
 ):
     """Get all model types in the system.
-    
+
     Args:
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         List of model types.
     """
@@ -338,14 +354,16 @@ async def get_model_types(
 @router.get("/models/{model_type}/versions", response_model=List[ModelVersionResponse])
 async def get_model_versions(
     model_type: str = Path(..., description="Type of model"),
-    include_inactive: bool = Query(True, description="Whether to include inactive versions"),
+    include_inactive: bool = Query(
+        True, description="Whether to include inactive versions"
+    ),
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Get all versions of a model type.
-    
+
     Args:
         model_type: Type of model.
         include_inactive: Whether to include inactive versions.
@@ -353,7 +371,7 @@ async def get_model_versions(
         limit: Maximum number of records to return.
         db: Database session.
         current_user: Current user.
-        
+
     Returns:
         List of model versions.
     """
@@ -364,7 +382,7 @@ async def get_model_versions(
         limit=limit,
         include_inactive=include_inactive,
     )
-    
+
     return versions
 
 
@@ -374,11 +392,11 @@ async def get_active_model_versions(
     current_user: User = Depends(get_current_user),
 ):
     """Get all active model versions.
-    
+
     Args:
         db: Database session.
         current_user: Current user.
-        
+
     Returns:
         List of active model versions.
     """
@@ -393,84 +411,90 @@ async def get_model_version(
     current_user: User = Depends(get_current_user),
 ):
     """Get a model version by ID.
-    
+
     Args:
         version_id: Model version ID.
         db: Database session.
         current_user: Current user.
-        
+
     Returns:
         Model version details.
     """
     model_admin = ModelAdmin(db)
     version = await model_admin.get_version_by_id(version_id)
-    
+
     if not version:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Model version not found",
         )
-    
+
     return version
 
 
-@router.put("/models/versions/{version_id}/activate", response_model=ModelVersionResponse)
+@router.put(
+    "/models/versions/{version_id}/activate", response_model=ModelVersionResponse
+)
 async def activate_model_version(
     version_id: UUID4,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_superuser),
 ):
     """Activate a model version.
-    
+
     Args:
         version_id: Model version ID.
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         Activated model version.
     """
     model_admin = ModelAdmin(db)
     version = await model_admin.activate_version(version_id)
-    
+
     if not version:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Model version not found",
         )
-    
+
     return version
 
 
-@router.put("/models/versions/{version_id}/deactivate", response_model=ModelVersionResponse)
+@router.put(
+    "/models/versions/{version_id}/deactivate", response_model=ModelVersionResponse
+)
 async def deactivate_model_version(
     version_id: UUID4,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_superuser),
 ):
     """Deactivate a model version.
-    
+
     Args:
         version_id: Model version ID.
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         Deactivated model version.
     """
     model_admin = ModelAdmin(db)
     version = await model_admin.deactivate_version(version_id)
-    
+
     if not version:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Model version not found",
         )
-    
+
     return version
 
 
-@router.get("/models/{model_type}/performance", response_model=List[ModelPerformanceResponse])
+@router.get(
+    "/models/{model_type}/performance", response_model=List[ModelPerformanceResponse]
+)
 async def get_model_performance(
     model_type: str = Path(..., description="Type of model"),
     version: Optional[str] = Query(None, description="Optional version identifier"),
@@ -479,14 +503,14 @@ async def get_model_performance(
     current_user: User = Depends(get_current_user),
 ):
     """Get performance history for a model.
-    
+
     Args:
         model_type: Type of model.
         version: Optional version identifier.
         limit: Maximum number of records to return.
         db: Database session.
         current_user: Current user.
-        
+
     Returns:
         List of performance records.
     """
@@ -496,7 +520,7 @@ async def get_model_performance(
         version=version,
         limit=limit,
     )
-    
+
     return performance
 
 
@@ -507,24 +531,24 @@ async def export_model_config(
     current_user: User = Depends(get_current_user),
 ):
     """Export a model's configuration and metadata.
-    
+
     Args:
         version_id: Model version ID.
         db: Database session.
         current_user: Current user.
-        
+
     Returns:
         Model configuration.
     """
     model_admin = ModelAdmin(db)
     config = await model_admin.export_model_config(version_id)
-    
+
     if not config:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Model version not found",
         )
-    
+
     return config
 
 
@@ -536,25 +560,25 @@ async def rename_model_version(
     current_user: User = Depends(get_current_superuser),
 ):
     """Rename a model version.
-    
+
     Args:
         version_id: Model version ID.
         new_version: New version name.
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         Updated model version.
     """
     model_admin = ModelAdmin(db)
     version = await model_admin.rename_model_version(version_id, new_version)
-    
+
     if not version:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Model version not found or version name already exists",
         )
-    
+
     return version
 
 
@@ -571,7 +595,7 @@ async def get_error_logs(
     current_user: User = Depends(get_current_superuser),
 ):
     """Get system error logs with filtering and pagination.
-    
+
     Args:
         limit: Maximum number of records to return.
         skip: Number of records to skip.
@@ -581,7 +605,7 @@ async def get_error_logs(
         error_type: Optional error type for filtering.
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         List of error logs.
     """
@@ -602,11 +626,11 @@ async def get_system_health(
     current_user: User = Depends(get_current_superuser),
 ):
     """Get comprehensive system health check results.
-    
+
     Args:
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         Health check results.
     """
@@ -624,7 +648,7 @@ async def get_system_metrics(
     current_user: User = Depends(get_current_superuser),
 ):
     """Get system metrics with filtering.
-    
+
     Args:
         metric_name: Optional metric name for filtering.
         start_date: Optional start date for filtering.
@@ -632,7 +656,7 @@ async def get_system_metrics(
         limit: Maximum number of records to return.
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         List of system metrics.
     """
@@ -653,13 +677,13 @@ async def record_system_metric(
     current_user: User = Depends(get_current_superuser),
 ):
     """Record a system metric.
-    
+
     Args:
         name: Metric name.
         value: Metric value.
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         Created system metric.
     """
@@ -676,23 +700,25 @@ async def send_system_alert(
     current_user: User = Depends(get_current_superuser),
 ):
     """Send a system alert to administrators.
-    
+
     Args:
         alert_type: Type of alert.
         message: Alert message.
         db: Database session.
         current_user: Current superuser.
-        
+
     Returns:
         Alert sending result.
     """
     system_admin = SystemAdmin(db)
-    result = await system_admin.send_system_alerts(alert_type=alert_type, message=message)
-    
+    result = await system_admin.send_system_alerts(
+        alert_type=alert_type, message=message
+    )
+
     if result:
         return {"status": "success", "message": "Alert sent successfully"}
     else:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send alert",
-        ) 
+        )

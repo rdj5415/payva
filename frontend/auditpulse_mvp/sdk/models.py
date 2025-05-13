@@ -2,6 +2,7 @@
 
 This module provides Pydantic models for data validation and serialization.
 """
+
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
@@ -246,4 +247,4 @@ class NotificationSettings(BaseModel):
 
         json_encoders = {
             datetime: lambda v: v.isoformat(),
-        } 
+        }

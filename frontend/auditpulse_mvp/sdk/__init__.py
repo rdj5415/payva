@@ -40,4 +40,4 @@ __all__ = [
     "Tenant",
     "Transaction",
     "User",
-] 
+]

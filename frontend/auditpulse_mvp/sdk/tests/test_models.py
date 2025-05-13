@@ -2,6 +2,7 @@
 
 This module contains tests for the SDK data models.
 """
+
 import pytest
 from datetime import datetime
 from uuid import uuid4
@@ -188,4 +189,4 @@ def test_model_validation():
             status=AnomalyStatus.OPEN,
             created_at=datetime.now(),
             updated_at=datetime.now(),
-        ) 
+        )

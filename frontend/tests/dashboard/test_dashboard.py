@@ -3,6 +3,7 @@
 This module contains tests for the Streamlit dashboard,
 including data retrieval, filtering, and visualization.
 """
+
 import datetime
 import uuid
 from unittest.mock import MagicMock, patch
@@ -69,8 +70,10 @@ def test_get_anomalies(
 ):
     """Test retrieving anomalies with filters."""
     # Setup
-    mock_db_session.query.return_value.filter.return_value.all.return_value = mock_anomalies
-    
+    mock_db_session.query.return_value.filter.return_value.all.return_value = (
+        mock_anomalies
+    )
+
     # Get anomalies
     anomalies_df = get_anomalies(
         db=mock_db_session,
@@ -82,14 +85,24 @@ def test_get_anomalies(
         anomaly_types=["unusual_amount"],
         is_resolved=False,
     )
-    
+
     # Verify results
     assert isinstance(anomalies_df, pd.DataFrame)
     assert len(anomalies_df) == len(mock_anomalies)
-    assert all(col in anomalies_df.columns for col in [
-        "id", "risk_level", "anomaly_type", "score", "amount",
-        "date", "description", "explanation", "is_resolved"
-    ])
+    assert all(
+        col in anomalies_df.columns
+        for col in [
+            "id",
+            "risk_level",
+            "anomaly_type",
+            "score",
+            "amount",
+            "date",
+            "description",
+            "explanation",
+            "is_resolved",
+        ]
+    )
 
 
 def test_get_anomalies_empty(
@@ -99,7 +112,7 @@ def test_get_anomalies_empty(
     """Test retrieving anomalies with no results."""
     # Setup
     mock_db_session.query.return_value.filter.return_value.all.return_value = []
-    
+
     # Get anomalies
     anomalies_df = get_anomalies(
         db=mock_db_session,
@@ -107,7 +120,7 @@ def test_get_anomalies_empty(
         start_date=datetime.datetime.now() - datetime.timedelta(days=7),
         end_date=datetime.datetime.now(),
     )
-    
+
     # Verify results
     assert isinstance(anomalies_df, pd.DataFrame)
     assert len(anomalies_df) == 0
@@ -131,11 +144,13 @@ def test_get_risk_config(
             "low_risk": 0.2,
         },
     }
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_config
-    
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_config
+    )
+
     # Get configuration
     config = get_risk_config(mock_db_session, mock_tenant.id)
-    
+
     # Verify configuration
     assert config == mock_config
 
@@ -158,14 +173,14 @@ def test_update_risk_config(
             "low_risk": 0.25,
         },
     }
-    
+
     # Update configuration
     update_risk_config(
         db=mock_db_session,
         tenant_id=mock_tenant.id,
         config=new_config,
     )
-    
+
     # Verify update
     mock_db_session.query.return_value.filter.return_value.update.assert_called_once()
     mock_db_session.commit.assert_called_once()
@@ -180,7 +195,7 @@ def test_resolve_anomaly(
     # Setup
     anomaly = mock_anomalies[0]
     mock_db_session.query.return_value.filter.return_value.first.return_value = anomaly
-    
+
     # Resolve anomaly
     resolve_anomaly(
         db=mock_db_session,
@@ -188,7 +203,7 @@ def test_resolve_anomaly(
         feedback_type="true_positive",
         resolution_notes="Test resolution",
     )
-    
+
     # Verify resolution
     assert anomaly.is_resolved is True
     assert anomaly.feedback_type == "true_positive"
@@ -204,7 +219,7 @@ def test_resolve_anomaly_not_found(
     """Test resolving non-existent anomaly."""
     # Setup
     mock_db_session.query.return_value.filter.return_value.first.return_value = None
-    
+
     # Attempt to resolve anomaly
     with pytest.raises(ValueError):
         resolve_anomaly(
@@ -212,4 +227,4 @@ def test_resolve_anomaly_not_found(
             anomaly_id=uuid.uuid4(),
             feedback_type="true_positive",
             resolution_notes="Test resolution",
-        ) 
+        )

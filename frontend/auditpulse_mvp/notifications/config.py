@@ -43,4 +43,4 @@ if not settings.SMTP_USERNAME:
 if not settings.SMTP_PASSWORD:
     raise ValueError("SMTP_PASSWORD is required")
 if not settings.SMTP_FROM_EMAIL:
-    raise ValueError("SMTP_FROM_EMAIL is required") 
+    raise ValueError("SMTP_FROM_EMAIL is required")

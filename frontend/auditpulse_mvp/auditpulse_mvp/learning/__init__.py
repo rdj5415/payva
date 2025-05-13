@@ -14,4 +14,4 @@ __all__ = [
     "FeedbackLearner",
     "update_thresholds_from_feedback",
     "get_feedback_learner",
-] 
+]

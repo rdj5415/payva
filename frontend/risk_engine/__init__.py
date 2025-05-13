@@ -19,4 +19,4 @@ __all__ = [
     "RiskResult",
     "RiskWeights",
     "get_risk_engine",
-] 
+]

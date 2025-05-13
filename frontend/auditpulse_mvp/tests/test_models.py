@@ -2,6 +2,7 @@
 
 This module tests SQLAlchemy model validation and relationships.
 """
+
 import datetime
 import uuid
 from decimal import Decimal
@@ -116,9 +117,7 @@ async def test_anomaly_model(db_session: AsyncSession) -> None:
     await db_session.flush()
 
     # Query the anomaly with transaction
-    result = await db_session.execute(
-        select(Anomaly).where(Anomaly.id == anomaly_id)
-    )
+    result = await db_session.execute(select(Anomaly).where(Anomaly.id == anomaly_id))
     retrieved_anomaly = result.scalar_one()
 
     # Assertions
@@ -274,9 +273,7 @@ async def test_transaction_anomaly_relationship(db_session: AsyncSession) -> Non
     assert any(anomaly.id == anomaly2_id for anomaly in retrieved_transaction.anomalies)
 
     # Query one of the anomalies with its transaction
-    result = await db_session.execute(
-        select(Anomaly).where(Anomaly.id == anomaly1_id)
-    )
+    result = await db_session.execute(select(Anomaly).where(Anomaly.id == anomaly1_id))
     retrieved_anomaly = result.scalar_one()
 
     # Assertions
@@ -337,9 +334,7 @@ async def test_feedback_update(db_session: AsyncSession) -> None:
     await db_session.flush()
 
     # Query the updated anomaly
-    result = await db_session.execute(
-        select(Anomaly).where(Anomaly.id == anomaly_id)
-    )
+    result = await db_session.execute(select(Anomaly).where(Anomaly.id == anomaly_id))
     retrieved_anomaly = result.scalar_one()
 
     # Assertions
@@ -347,4 +342,4 @@ async def test_feedback_update(db_session: AsyncSession) -> None:
     assert retrieved_anomaly.feedback_notes == "This is a legitimate business expense"
     assert retrieved_anomaly.resolved is True
     assert retrieved_anomaly.resolved_by is not None
-    assert retrieved_anomaly.resolved_at is not None 
+    assert retrieved_anomaly.resolved_at is not None

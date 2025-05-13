@@ -3,6 +3,7 @@
 This module contains tests for the authentication service functionality,
 including user creation, authentication, and token management.
 """
+
 import datetime
 import uuid
 from unittest.mock import MagicMock, patch, AsyncMock
@@ -30,7 +31,9 @@ def mock_user():
     user = MagicMock(spec=User)
     user.id = uuid.uuid4()
     user.email = "test@example.com"
-    user.hashed_password = "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I6e"  # "password123"
+    user.hashed_password = (
+        "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I6e"  # "password123"
+    )
     user.full_name = "Test User"
     user.tenant_id = uuid.uuid4()
     user.role = UserRole.USER
@@ -46,7 +49,7 @@ def test_create_user_success(
     """Test successful user creation."""
     # Setup
     mock_db_session.query.return_value.filter.return_value.first.return_value = None
-    
+
     # Create user data
     user_data = UserCreate(
         email="new@example.com",
@@ -55,14 +58,14 @@ def test_create_user_success(
         tenant_id=uuid.uuid4(),
         role=UserRole.USER,
     )
-    
+
     # Initialize service
     service = AuthService(mock_db_session)
-    
+
     # Create user
     with patch("auditpulse_mvp.auth.auth_service.User", return_value=mock_user):
         response = service.create_user(user_data)
-    
+
     # Verify response
     assert response.id == mock_user.id
     assert response.email == mock_user.email
@@ -71,7 +74,7 @@ def test_create_user_success(
     assert response.role == mock_user.role
     assert response.is_active == mock_user.is_active
     assert response.created_at == mock_user.created_at
-    
+
     # Verify database operations
     mock_db_session.add.assert_called_once()
     mock_db_session.commit.assert_called_once()
@@ -84,8 +87,10 @@ def test_create_user_already_exists(
 ):
     """Test user creation with existing email."""
     # Setup
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_user
-    
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_user
+    )
+
     # Create user data
     user_data = UserCreate(
         email=mock_user.email,
@@ -94,14 +99,14 @@ def test_create_user_already_exists(
         tenant_id=mock_user.tenant_id,
         role=UserRole.USER,
     )
-    
+
     # Initialize service
     service = AuthService(mock_db_session)
-    
+
     # Attempt to create user
     with pytest.raises(HTTPException) as exc_info:
         service.create_user(user_data)
-    
+
     # Verify exception
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "User already exists"
@@ -113,21 +118,23 @@ def test_authenticate_user_success(
 ):
     """Test successful user authentication."""
     # Setup
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_user
-    
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_user
+    )
+
     # Initialize service
     service = AuthService(mock_db_session)
-    
+
     # Authenticate user
     user, token = service.authenticate_user(
         email=mock_user.email,
         password="password123",
         tenant_id=mock_user.tenant_id,
     )
-    
+
     # Verify user
     assert user == mock_user
-    
+
     # Verify token
     assert token.access_token is not None
     assert token.token_type == "bearer"
@@ -140,11 +147,13 @@ def test_authenticate_user_invalid_credentials(
 ):
     """Test authentication with invalid credentials."""
     # Setup
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_user
-    
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_user
+    )
+
     # Initialize service
     service = AuthService(mock_db_session)
-    
+
     # Attempt to authenticate
     with pytest.raises(HTTPException) as exc_info:
         service.authenticate_user(
@@ -152,7 +161,7 @@ def test_authenticate_user_invalid_credentials(
             password="wrongpassword",
             tenant_id=mock_user.tenant_id,
         )
-    
+
     # Verify exception
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == "Invalid credentials"
@@ -165,11 +174,13 @@ def test_authenticate_user_inactive(
     """Test authentication with inactive user."""
     # Setup
     mock_user.is_active = False
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_user
-    
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_user
+    )
+
     # Initialize service
     service = AuthService(mock_db_session)
-    
+
     # Attempt to authenticate
     with pytest.raises(HTTPException) as exc_info:
         service.authenticate_user(
@@ -177,7 +188,7 @@ def test_authenticate_user_inactive(
             password="password123",
             tenant_id=mock_user.tenant_id,
         )
-    
+
     # Verify exception
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == "User is inactive"
@@ -189,14 +200,16 @@ def test_get_current_user_success(
 ):
     """Test successful current user retrieval."""
     # Setup
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_user
-    
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_user
+    )
+
     # Initialize service
     service = AuthService(mock_db_session)
-    
+
     # Create token
     token = service._create_access_token(mock_user)
-    
+
     # Get current user
     with patch("auditpulse_mvp.auth.auth_service.jwt.decode") as mock_decode:
         mock_decode.return_value = {
@@ -205,7 +218,7 @@ def test_get_current_user_success(
             "role": mock_user.role.value,
         }
         user = service.get_current_user(token.access_token)
-    
+
     # Verify user
     assert user == mock_user
 
@@ -216,11 +229,11 @@ def test_get_current_user_invalid_token(
     """Test current user retrieval with invalid token."""
     # Initialize service
     service = AuthService(mock_db_session)
-    
+
     # Attempt to get current user
     with pytest.raises(HTTPException) as exc_info:
         service.get_current_user("invalid_token")
-    
+
     # Verify exception
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == "Invalid token"
@@ -261,9 +274,9 @@ async def test_exchange_auth0_code_success(auth_service, mock_auth0_response):
             status_code=200,
             json=mock_auth0_response,
         )
-        
+
         result = await auth_service.exchange_auth0_code("mock_code", "mock_state")
-        
+
         assert result == mock_auth0_response
         mock_post.assert_called_once()
 
@@ -276,10 +289,10 @@ async def test_exchange_auth0_code_failure(auth_service):
             status_code=401,
             json={"error": "invalid_grant"},
         )
-        
+
         with pytest.raises(HTTPException) as exc_info:
             await auth_service.exchange_auth0_code("mock_code", "mock_state")
-        
+
         assert exc_info.value.status_code == 401
         assert "Failed to exchange code for token" in str(exc_info.value.detail)
 
@@ -292,10 +305,10 @@ async def test_get_or_create_auth0_user_new(auth_service, mock_user_info):
             status_code=200,
             json=mock_user_info,
         )
-        
+
         token_data = {"access_token": "mock_token"}
         user = await auth_service.get_or_create_auth0_user(token_data)
-        
+
         assert user.email == mock_user_info["email"]
         assert user.full_name == mock_user_info["name"]
         assert user.picture == mock_user_info["picture"]
@@ -316,16 +329,16 @@ async def test_get_or_create_auth0_user_existing(auth_service, mock_user_info):
     )
     auth_service.db_session.add(existing_user)
     await auth_service.db_session.commit()
-    
+
     with patch("httpx.AsyncClient.get") as mock_get:
         mock_get.return_value = Response(
             status_code=200,
             json=mock_user_info,
         )
-        
+
         token_data = {"access_token": "mock_token"}
         user = await auth_service.get_or_create_auth0_user(token_data)
-        
+
         assert user.id == existing_user.id
         assert user.full_name == mock_user_info["name"]
         assert user.picture == mock_user_info["picture"]
@@ -340,9 +353,9 @@ async def test_refresh_token_success(auth_service, mock_auth0_response):
             status_code=200,
             json=mock_auth0_response,
         )
-        
+
         result = await auth_service.refresh_token("mock_refresh_token")
-        
+
         assert isinstance(result, Token)
         assert result.access_token == mock_auth0_response["access_token"]
         assert result.refresh_token == mock_auth0_response["refresh_token"]
@@ -357,10 +370,10 @@ async def test_refresh_token_failure(auth_service):
             status_code=401,
             json={"error": "invalid_grant"},
         )
-        
+
         with pytest.raises(HTTPException) as exc_info:
             await auth_service.refresh_token("mock_refresh_token")
-        
+
         assert exc_info.value.status_code == 401
         assert "Invalid refresh token" in str(exc_info.value.detail)
 
@@ -374,10 +387,10 @@ def test_create_session_token(auth_service):
         is_active=True,
         created_at=datetime.datetime.now(),
     )
-    
+
     token = auth_service.create_session_token(user)
-    
+
     assert isinstance(token, Token)
     assert token.token_type == "bearer"
     assert token.expires_at > datetime.datetime.now()
-    assert token.refresh_token is None 
+    assert token.refresh_token is None

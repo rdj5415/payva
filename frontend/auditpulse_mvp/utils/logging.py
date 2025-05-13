@@ -3,6 +3,7 @@
 This module provides structured logging and metrics collection functionality,
 integrating with Prometheus for metrics and JSON logging for better observability.
 """
+
 import json
 import logging
 import time
@@ -75,24 +76,24 @@ logger = structlog.get_logger()
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     """Middleware for request logging and metrics collection."""
-    
+
     async def dispatch(self, request: Request, call_next: Any) -> Response:
         """Process the request and log metrics.
-        
+
         Args:
             request: The incoming request.
             call_next: The next middleware or route handler.
-            
+
         Returns:
             Response: The response from the application.
         """
         # Generate request ID
         req_id = request.headers.get("X-Request-ID", "")
         request_id.set(req_id)
-        
+
         # Start timer
         start_time = time.time()
-        
+
         # Process request
         try:
             response = await call_next(request)
@@ -103,7 +104,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         finally:
             # Calculate duration
             duration = time.time() - start_time
-            
+
             # Log request
             logger.info(
                 "http_request",
@@ -115,25 +116,27 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 user_id=user_id.get(),
                 tenant_id=tenant_id.get(),
             )
-            
+
             # Record metrics
             http_requests_total.labels(
                 method=request.method,
                 endpoint=request.url.path,
                 status=status_code,
             ).inc()
-            
+
             http_request_duration_seconds.labels(
                 method=request.method,
                 endpoint=request.url.path,
             ).observe(duration)
-    
+
         return response
 
 
-def log_auth_attempt(method: str, success: bool, user_id: Optional[UUID] = None) -> None:
+def log_auth_attempt(
+    method: str, success: bool, user_id: Optional[UUID] = None
+) -> None:
     """Log an authentication attempt.
-    
+
     Args:
         method: Authentication method used.
         success: Whether authentication was successful.
@@ -145,7 +148,7 @@ def log_auth_attempt(method: str, success: bool, user_id: Optional[UUID] = None)
         success=success,
         user_id=user_id,
     )
-    
+
     auth_attempts.labels(
         method=method,
         status="success" if success else "failure",
@@ -160,7 +163,7 @@ def log_api_error(
     tenant_id: Optional[UUID] = None,
 ) -> None:
     """Log an API error.
-    
+
     Args:
         endpoint: The API endpoint where the error occurred.
         error_type: Type of error (e.g., "validation", "auth", "server").
@@ -176,7 +179,7 @@ def log_api_error(
         user_id=user_id,
         tenant_id=tenant_id,
     )
-    
+
     api_errors.labels(
         endpoint=endpoint,
         error_type=error_type,
@@ -185,7 +188,7 @@ def log_api_error(
 
 def update_active_users(tenant_id: UUID, count: int) -> None:
     """Update the number of active users for a tenant.
-    
+
     Args:
         tenant_id: ID of the tenant.
         count: Number of active users.
@@ -195,11 +198,11 @@ def update_active_users(tenant_id: UUID, count: int) -> None:
 
 def get_logger(name: str) -> structlog.BoundLogger:
     """Get a logger instance with the given name.
-    
+
     Args:
         name: Name of the logger.
-        
+
     Returns:
         structlog.BoundLogger: Configured logger instance.
     """
-    return structlog.get_logger(name) 
+    return structlog.get_logger(name)

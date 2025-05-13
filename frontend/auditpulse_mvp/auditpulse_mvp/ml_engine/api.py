@@ -27,7 +27,7 @@ router = APIRouter(
 # Pydantic models for API requests and responses
 class ModelParameters(BaseModel):
     """Model parameters for training."""
-    
+
     n_estimators: Optional[int] = Field(
         None, description="Number of estimators in the ensemble"
     )
@@ -44,22 +44,32 @@ class ModelParameters(BaseModel):
 
 class TrainingResponse(BaseModel):
     """Response from model training."""
-    
+
     model_path: str = Field(..., description="Path to the trained model file")
-    training_samples: int = Field(..., description="Number of samples used for training")
-    anomaly_rate: float = Field(..., description="Proportion of anomalies detected in training data")
-    anomaly_count: int = Field(..., description="Number of anomalies detected in training data")
+    training_samples: int = Field(
+        ..., description="Number of samples used for training"
+    )
+    anomaly_rate: float = Field(
+        ..., description="Proportion of anomalies detected in training data"
+    )
+    anomaly_count: int = Field(
+        ..., description="Number of anomalies detected in training data"
+    )
 
 
 class ModelInfo(BaseModel):
     """Information about a trained model."""
-    
+
     tenant_id: str = Field(..., description="Tenant ID")
     created_at: str = Field(..., description="Creation timestamp")
     data_start_date: str = Field(..., description="Start date of training data")
     data_end_date: str = Field(..., description="End date of training data")
-    training_samples: int = Field(..., description="Number of samples used for training")
-    anomaly_rate: float = Field(..., description="Proportion of anomalies in training data")
+    training_samples: int = Field(
+        ..., description="Number of samples used for training"
+    )
+    anomaly_rate: float = Field(
+        ..., description="Proportion of anomalies in training data"
+    )
     model_version: str = Field(..., description="Model version identifier")
     filename: Optional[str] = Field(None, description="Model filename")
     file_size: Optional[int] = Field(None, description="Model file size in bytes")
@@ -68,14 +78,16 @@ class ModelInfo(BaseModel):
 
 class TransactionScore(BaseModel):
     """Score for a transaction."""
-    
+
     transaction_id: uuid.UUID = Field(..., description="Transaction ID")
-    score: float = Field(..., description="Anomaly score (0-1, higher is more anomalous)")
+    score: float = Field(
+        ..., description="Anomaly score (0-1, higher is more anomalous)"
+    )
 
 
 class RetrainingStatus(BaseModel):
     """Status of a retraining operation."""
-    
+
     tenant_count: int = Field(..., description="Number of tenants processed")
     success_count: int = Field(..., description="Number of successful retrainings")
     error_count: int = Field(..., description="Number of failed retrainings")
@@ -94,26 +106,26 @@ async def train_model(
     db_session: AsyncSession = Depends(get_db_session),
 ):
     """Train a new Isolation Forest model for anomaly detection.
-    
+
     This endpoint trains a new model for the specified tenant using
     their historical transaction data. The model is then saved and
     can be used for inference.
-    
+
     Args:
         tenant_id: The tenant ID.
         parameters: Optional model parameters to customize the training.
         db_session: Database session for data access.
-        
+
     Returns:
         Information about the trained model.
     """
     ml_engine = MLEngine(db_session=db_session)
-    
+
     result = await ml_engine.train_model(
         tenant_id=tenant_id,
         model_params=parameters.dict(exclude_none=True) if parameters else None,
     )
-    
+
     return TrainingResponse(
         model_path=result["model_path"],
         training_samples=result["training_samples"],
@@ -132,14 +144,14 @@ async def get_models(
     db_session: AsyncSession = Depends(get_db_session),
 ):
     """Get information about all trained models for a tenant.
-    
+
     This endpoint returns a list of all models trained for the specified
     tenant, including metadata about each model.
-    
+
     Args:
         tenant_id: The tenant ID.
         db_session: Database session for data access.
-        
+
     Returns:
         List of model information objects.
     """
@@ -159,10 +171,10 @@ async def delete_model(
     db_session: AsyncSession = Depends(get_db_session),
 ):
     """Delete a specific model.
-    
+
     This endpoint deletes a model and its associated files. This
     operation cannot be undone.
-    
+
     Args:
         tenant_id: The tenant ID.
         model_filename: The filename of the model to delete.
@@ -170,7 +182,7 @@ async def delete_model(
     """
     ml_engine = MLEngine(db_session=db_session)
     success = await ml_engine.delete_model(tenant_id, model_filename)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -185,40 +197,42 @@ async def delete_model(
 )
 async def score_transactions(
     tenant_id: uuid.UUID = Path(..., description="The tenant ID"),
-    transaction_ids: List[uuid.UUID] = Query(..., description="List of transaction IDs to score"),
+    transaction_ids: List[uuid.UUID] = Query(
+        ..., description="List of transaction IDs to score"
+    ),
     db_session: AsyncSession = Depends(get_db_session),
 ):
     """Score multiple transactions for anomalies.
-    
+
     This endpoint scores the specified transactions using the latest
     trained model for the tenant. Higher scores indicate more anomalous
     transactions.
-    
+
     Args:
         tenant_id: The tenant ID.
         transaction_ids: List of transaction IDs to score.
         db_session: Database session for data access.
-        
+
     Returns:
         List of transaction scores.
     """
     if not transaction_ids:
         return []
-    
+
     # Get the transactions from the database
     transactions = []
     for txn_id in transaction_ids:
         txn = await db_session.get(Transaction, txn_id)
         if txn and txn.tenant_id == tenant_id and not txn.is_deleted:
             transactions.append(txn)
-    
+
     if not transactions:
         return []
-    
+
     # Score the transactions
     ml_engine = MLEngine(db_session=db_session)
     scores = await ml_engine.batch_score_transactions(tenant_id, transactions)
-    
+
     # Format the response
     return [
         TransactionScore(transaction_id=txn_id, score=score)
@@ -236,28 +250,28 @@ async def retrain_all_models(
     scheduler: MLScheduler = Depends(get_ml_scheduler),
 ):
     """Retrain models for all tenants immediately.
-    
+
     This endpoint triggers an immediate retraining of models for all
     active tenants. This is useful for manual retraining outside of
     the scheduled nightly retraining.
-    
+
     Args:
         db_session: Database session for data access.
         scheduler: ML scheduler for retraining.
-        
+
     Returns:
         Status of the retraining operation.
     """
     results = await scheduler.run_immediate_retraining()
-    
+
     # Count results by status
     success_count = sum(1 for r in results.values() if r.get("status") == "success")
     error_count = sum(1 for r in results.values() if r.get("status") == "error")
     skipped_count = sum(1 for r in results.values() if r.get("status") == "skipped")
-    
+
     return RetrainingStatus(
         tenant_count=len(results),
         success_count=success_count,
         error_count=error_count,
         skipped_count=skipped_count,
-    ) 
+    )

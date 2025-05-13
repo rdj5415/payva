@@ -22,4 +22,4 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Topic :: Office/Business :: Financial :: Accounting",
     ],
-) 
+)

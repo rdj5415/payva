@@ -2,6 +2,7 @@
 
 This module provides fixtures for testing.
 """
+
 import asyncio
 import os
 from typing import AsyncGenerator, Generator
@@ -44,17 +45,17 @@ async def db_engine() -> AsyncGenerator[AsyncEngine, None]:
         echo=False,
         poolclass=NullPool,
     )
-    
+
     async with engine.begin() as conn:
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield engine
-    
+
     # Drop all tables after tests
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-    
+
     await engine.dispose()
 
 
@@ -70,15 +71,15 @@ async def db_session(db_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, Non
     """
     connection = await db_engine.connect()
     transaction = await connection.begin()
-    
+
     async_session = sessionmaker(
         connection, expire_on_commit=False, class_=AsyncSession
     )
     session = async_session()
-    
+
     try:
         yield session
     finally:
         await session.close()
         await transaction.rollback()
-        await connection.close() 
+        await connection.close()

@@ -2,6 +2,7 @@
 
 This module provides API endpoints for retrieving and managing detected anomalies.
 """
+
 import asyncio
 import logging
 from datetime import datetime, timedelta
@@ -16,7 +17,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from auditpulse_mvp.api.deps import (
-    get_current_user, require_admin, require_auditor, get_current_tenant, log_audit_action, AuditAction
+    get_current_user,
+    require_admin,
+    require_auditor,
+    get_current_tenant,
+    log_audit_action,
+    AuditAction,
 )
 from auditpulse_mvp.database.models import User, Tenant, Anomaly, Transaction
 from auditpulse_mvp.database.session import get_db
@@ -32,6 +38,7 @@ router = APIRouter()
 
 class AnomalyType(str, Enum):
     """Types of anomalies that can be detected."""
+
     RULES_BASED = "rules_based"
     ML_BASED = "ml_based"
     COMBINED = "combined"
@@ -39,6 +46,7 @@ class AnomalyType(str, Enum):
 
 class AnomalyStatus(str, Enum):
     """Status of an anomaly."""
+
     NEW = "new"
     REVIEWED = "reviewed"
     DISMISSED = "dismissed"
@@ -48,6 +56,7 @@ class AnomalyStatus(str, Enum):
 
 class FeedbackType(str, Enum):
     """Type of feedback for an anomaly."""
+
     FALSE_POSITIVE = "false_positive"
     TRUE_POSITIVE = "true_positive"
     NEEDS_INVESTIGATION = "needs_investigation"
@@ -56,6 +65,7 @@ class FeedbackType(str, Enum):
 
 class AnomalyFilter(BaseModel):
     """Filter model for anomaly queries."""
+
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     min_risk_score: Optional[float] = None
@@ -68,6 +78,7 @@ class AnomalyFilter(BaseModel):
 
 class TransactionModel(BaseModel):
     """Model for transaction data in anomaly responses."""
+
     id: UUID
     date: datetime
     amount: float
@@ -81,13 +92,17 @@ class TransactionModel(BaseModel):
 
 class AnomalyFeedback(BaseModel):
     """Model for submitting feedback on an anomaly."""
+
     feedback_type: FeedbackType
     notes: Optional[str] = None
-    should_notify: bool = Field(False, description="Whether to send notifications about this feedback")
+    should_notify: bool = Field(
+        False, description="Whether to send notifications about this feedback"
+    )
 
 
 class AnomalyResponse(BaseModel):
     """Response model for a single anomaly."""
+
     id: UUID
     tenant_id: UUID
     transaction_id: UUID
@@ -108,6 +123,7 @@ class AnomalyResponse(BaseModel):
 
 class AnomalyListResponse(BaseModel):
     """Response model for a list of anomalies."""
+
     items: List[AnomalyResponse]
     total: int
     page: int
@@ -117,10 +133,10 @@ class AnomalyListResponse(BaseModel):
 
 def get_risk_level(risk_score: float) -> str:
     """Get the risk level from a risk score.
-    
+
     Args:
         risk_score: Risk score between 0 and 100
-        
+
     Returns:
         str: Risk level (negligible, low, medium, high, critical)
     """
@@ -146,19 +162,33 @@ async def list_anomalies(
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     start_date: Optional[datetime] = Query(None, description="Filter by start date"),
     end_date: Optional[datetime] = Query(None, description="Filter by end date"),
-    min_risk_score: Optional[float] = Query(None, ge=0, le=100, description="Minimum risk score"),
-    max_risk_score: Optional[float] = Query(None, ge=0, le=100, description="Maximum risk score"),
-    anomaly_types: Optional[List[AnomalyType]] = Query(None, description="Filter by anomaly types"),
-    statuses: Optional[List[AnomalyStatus]] = Query(None, description="Filter by statuses"),
-    transaction_types: Optional[List[str]] = Query(None, description="Filter by transaction types"),
-    search_term: Optional[str] = Query(None, description="Search in description or transaction details"),
-    include_transactions: bool = Query(False, description="Include transaction details in response"),
+    min_risk_score: Optional[float] = Query(
+        None, ge=0, le=100, description="Minimum risk score"
+    ),
+    max_risk_score: Optional[float] = Query(
+        None, ge=0, le=100, description="Maximum risk score"
+    ),
+    anomaly_types: Optional[List[AnomalyType]] = Query(
+        None, description="Filter by anomaly types"
+    ),
+    statuses: Optional[List[AnomalyStatus]] = Query(
+        None, description="Filter by statuses"
+    ),
+    transaction_types: Optional[List[str]] = Query(
+        None, description="Filter by transaction types"
+    ),
+    search_term: Optional[str] = Query(
+        None, description="Search in description or transaction details"
+    ),
+    include_transactions: bool = Query(
+        False, description="Include transaction details in response"
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ) -> AnomalyListResponse:
     """List anomalies with various filtering options.
-    
+
     Args:
         page: Page number (1-based)
         page_size: Items per page
@@ -174,32 +204,29 @@ async def list_anomalies(
         db: Database session
         current_user: Current authenticated user
         current_tenant: Current tenant
-        
+
     Returns:
         AnomalyListResponse: List of anomalies matching the filters
     """
     # Build query
-    query = (
-        select(Anomaly)
-        .where(Anomaly.tenant_id == current_tenant.id)
-    )
-    
+    query = select(Anomaly).where(Anomaly.tenant_id == current_tenant.id)
+
     # Apply filters
     if start_date:
         query = query.where(Anomaly.created_at >= start_date)
-        
+
     if end_date:
         query = query.where(Anomaly.created_at <= end_date)
-        
+
     if min_risk_score is not None:
         query = query.where(Anomaly.risk_score >= min_risk_score)
-        
+
     if max_risk_score is not None:
         query = query.where(Anomaly.risk_score <= max_risk_score)
-        
+
     if anomaly_types:
         query = query.where(Anomaly.anomaly_type.in_([t.value for t in anomaly_types]))
-        
+
     if statuses:
         # Map statuses to database fields
         status_conditions = []
@@ -214,28 +241,34 @@ async def list_anomalies(
                 )
             elif status == AnomalyStatus.DISMISSED:
                 status_conditions.append(
-                    and_(Anomaly.feedback == "false_positive", Anomaly.is_resolved == True)
+                    and_(
+                        Anomaly.feedback == "false_positive",
+                        Anomaly.is_resolved == True,
+                    )
                 )
             elif status == AnomalyStatus.CONFIRMED:
                 status_conditions.append(
-                    and_(Anomaly.feedback == "true_positive", Anomaly.is_resolved == False)
+                    and_(
+                        Anomaly.feedback == "true_positive",
+                        Anomaly.is_resolved == False,
+                    )
                 )
             elif status == AnomalyStatus.RESOLVED:
                 status_conditions.append(Anomaly.is_resolved == True)
-                
+
         if status_conditions:
             query = query.where(or_(*status_conditions))
-    
+
     # Include transaction data if requested
     if include_transactions:
         query = query.options(selectinload(Anomaly.transaction))
-        
+
     # Apply transaction type filter if provided
     if transaction_types and include_transactions:
         query = query.join(Anomaly.transaction).where(
             Transaction.transaction_type.in_(transaction_types)
         )
-    
+
     # Apply search term if provided
     if search_term:
         search_pattern = f"%{search_term}%"
@@ -250,22 +283,22 @@ async def list_anomalies(
             )
         else:
             query = query.where(Anomaly.description.ilike(search_pattern))
-    
+
     # Order by risk score (highest first) and created date (newest first)
     query = query.order_by(desc(Anomaly.risk_score), desc(Anomaly.created_at))
-    
+
     # Count total results
     count_query = select(Anomaly.id).where(query.whereclause)
     result = await db.execute(count_query)
     total_count = len(result.all())
-    
+
     # Apply pagination
     query = query.offset((page - 1) * page_size).limit(page_size)
-    
+
     # Execute query
     result = await db.execute(query)
     anomalies = result.scalars().all()
-    
+
     # Convert to response model
     items = []
     for anomaly in anomalies:
@@ -283,7 +316,7 @@ async def list_anomalies(
                 category=txn.category,
                 memo=txn.memo,
             )
-            
+
         items.append(
             AnomalyResponse(
                 id=anomaly.id,
@@ -304,7 +337,7 @@ async def list_anomalies(
                 detection_metadata=anomaly.detection_metadata,
             )
         )
-    
+
     # Log audit action
     await log_audit_action(
         db=db,
@@ -321,7 +354,9 @@ async def list_anomalies(
                     "end_date": end_date.isoformat() if end_date else None,
                     "min_risk_score": min_risk_score,
                     "max_risk_score": max_risk_score,
-                    "anomaly_types": [t.value for t in anomaly_types] if anomaly_types else None,
+                    "anomaly_types": (
+                        [t.value for t in anomaly_types] if anomaly_types else None
+                    ),
                     "statuses": [s.value for s in statuses] if statuses else None,
                     "transaction_types": transaction_types,
                     "search_term": search_term,
@@ -330,7 +365,7 @@ async def list_anomalies(
             },
         ),
     )
-    
+
     return AnomalyListResponse(
         items=items,
         total=total_count,
@@ -347,49 +382,48 @@ async def list_anomalies(
 )
 async def get_anomaly(
     anomaly_id: UUID = Path(..., description="Anomaly ID"),
-    include_transaction: bool = Query(True, description="Include transaction details in response"),
+    include_transaction: bool = Query(
+        True, description="Include transaction details in response"
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ) -> AnomalyResponse:
     """Get a single anomaly by ID.
-    
+
     Args:
         anomaly_id: Anomaly ID
         include_transaction: Include transaction details in response
         db: Database session
         current_user: Current authenticated user
         current_tenant: Current tenant
-        
+
     Returns:
         AnomalyResponse: Anomaly details
-        
+
     Raises:
         HTTPException: If anomaly not found or not accessible
     """
     # Build query
-    query = (
-        select(Anomaly)
-        .where(
-            Anomaly.id == anomaly_id,
-            Anomaly.tenant_id == current_tenant.id,
-        )
+    query = select(Anomaly).where(
+        Anomaly.id == anomaly_id,
+        Anomaly.tenant_id == current_tenant.id,
     )
-    
+
     # Include transaction data if requested
     if include_transaction:
         query = query.options(selectinload(Anomaly.transaction))
-    
+
     # Execute query
     result = await db.execute(query)
     anomaly = result.scalar_one_or_none()
-    
+
     if not anomaly:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Anomaly not found",
         )
-    
+
     # Convert to response model
     transaction_model = None
     if include_transaction and anomaly.transaction:
@@ -405,7 +439,7 @@ async def get_anomaly(
             category=txn.category,
             memo=txn.memo,
         )
-        
+
     # Log audit action
     await log_audit_action(
         db=db,
@@ -417,7 +451,7 @@ async def get_anomaly(
             resource_id=str(anomaly_id),
         ),
     )
-    
+
     return AnomalyResponse(
         id=anomaly.id,
         tenant_id=anomaly.tenant_id,
@@ -446,14 +480,18 @@ async def get_anomaly(
 async def add_anomaly_feedback(
     anomaly_id: UUID = Path(..., description="Anomaly ID"),
     feedback: AnomalyFeedback = Body(..., description="Feedback details"),
-    send_notifications: bool = Query(False, description="Send notifications about this feedback"),
-    trigger_learning: bool = Query(False, description="Trigger immediate learning based on feedback"),
+    send_notifications: bool = Query(
+        False, description="Send notifications about this feedback"
+    ),
+    trigger_learning: bool = Query(
+        False, description="Trigger immediate learning based on feedback"
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ) -> AnomalyResponse:
     """Provide feedback on an anomaly.
-    
+
     Args:
         anomaly_id: Anomaly ID
         feedback: Feedback details
@@ -462,10 +500,10 @@ async def add_anomaly_feedback(
         db: Database session
         current_user: Current authenticated user
         current_tenant: Current tenant
-        
+
     Returns:
         AnomalyResponse: Updated anomaly details
-        
+
     Raises:
         HTTPException: If anomaly not found or not accessible
     """
@@ -478,41 +516,37 @@ async def add_anomaly_feedback(
         )
         .options(selectinload(Anomaly.transaction))
     )
-    
+
     result = await db.execute(query)
     anomaly = result.scalar_one_or_none()
-    
+
     if not anomaly:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Anomaly not found",
         )
-    
+
     # Update anomaly with feedback
     update_values = {
         "feedback": feedback.feedback_type.value,
         "feedback_notes": feedback.notes,
         "updated_at": datetime.utcnow(),
     }
-    
+
     # Automatically resolve if false positive
     if feedback.feedback_type == FeedbackType.FALSE_POSITIVE:
         update_values["is_resolved"] = True
         update_values["resolved_by"] = current_user.id
         update_values["resolved_at"] = datetime.utcnow()
-    
-    stmt = (
-        update(Anomaly)
-        .where(Anomaly.id == anomaly_id)
-        .values(**update_values)
-    )
-    
+
+    stmt = update(Anomaly).where(Anomaly.id == anomaly_id).values(**update_values)
+
     await db.execute(stmt)
     await db.commit()
-    
+
     # Refresh anomaly from database
     await db.refresh(anomaly)
-    
+
     # Send notifications if requested
     if send_notifications or feedback.should_notify:
         # This would call the notification service to send notifications
@@ -521,11 +555,11 @@ async def add_anomaly_feedback(
             f"Notification about anomaly feedback would be sent: "
             f"Anomaly {anomaly_id}, feedback: {feedback.feedback_type.value}"
         )
-        
+
         # In a real implementation, this would call the notification service:
         # from auditpulse_mvp.alerts.notification_service import send_anomaly_notification
         # await send_anomaly_notification(anomaly_id)
-    
+
     # Log audit action
     await log_audit_action(
         db=db,
@@ -543,19 +577,23 @@ async def add_anomaly_feedback(
             },
         ),
     )
-    
+
     # Determine if we should trigger immediate learning
     should_trigger_learning = trigger_learning
-    
+
     if feedback.feedback_type == FeedbackType.FALSE_POSITIVE and not trigger_learning:
         # Check if we've received enough false positive feedback of the same type
         # to warrant an immediate learning update
-        rule_name = anomaly.detection_metadata.get("rule_name") if anomaly.detection_metadata else None
-        
+        rule_name = (
+            anomaly.detection_metadata.get("rule_name")
+            if anomaly.detection_metadata
+            else None
+        )
+
         if rule_name or anomaly.anomaly_type == AnomalyType.ML_BASED:
             # Count recent false positives for the same rule or ML
             thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-            
+
             if rule_name:
                 # Count false positives for the specific rule
                 fp_query = (
@@ -581,10 +619,10 @@ async def add_anomaly_feedback(
                         Anomaly.anomaly_type == AnomalyType.ML_BASED,
                     )
                 )
-            
+
             fp_result = await db.execute(fp_query)
             fp_count = fp_result.scalar_one()
-            
+
             # If we have enough false positives, trigger learning
             threshold = settings.false_positive_threshold or 5
             if fp_count >= threshold:
@@ -593,19 +631,17 @@ async def add_anomaly_feedback(
                     f"Triggering immediate learning due to {fp_count} false positives "
                     f"for {'rule ' + rule_name if rule_name else 'ML model'}"
                 )
-    
+
     # Trigger learning if requested or threshold reached
     if should_trigger_learning:
         try:
             # Run learning asynchronously - don't wait for completion
-            asyncio.create_task(
-                update_thresholds_from_feedback(current_tenant.id, db)
-            )
+            asyncio.create_task(update_thresholds_from_feedback(current_tenant.id, db))
             logger.info(f"Triggered learning process for tenant {current_tenant.id}")
         except Exception as e:
             # Log but don't fail the request
             logger.error(f"Failed to trigger learning process: {e}")
-    
+
     # Convert to response model
     transaction_model = None
     if anomaly.transaction:
@@ -621,7 +657,7 @@ async def add_anomaly_feedback(
             category=txn.category,
             memo=txn.memo,
         )
-        
+
     return AnomalyResponse(
         id=anomaly.id,
         tenant_id=anomaly.tenant_id,
@@ -639,4 +675,4 @@ async def add_anomaly_feedback(
         feedback_notes=anomaly.feedback_notes,
         transaction=transaction_model,
         detection_metadata=anomaly.detection_metadata,
-    ) 
+    )

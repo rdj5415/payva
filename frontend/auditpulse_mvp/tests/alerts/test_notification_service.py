@@ -2,6 +2,7 @@
 
 This module contains tests for the notification service and providers.
 """
+
 import uuid
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -9,7 +10,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import Response
 
-from auditpulse_mvp.alerts.base import NotificationPayload, NotificationStatus, NotificationPriority
+from auditpulse_mvp.alerts.base import (
+    NotificationPayload,
+    NotificationStatus,
+    NotificationPriority,
+)
 from auditpulse_mvp.alerts.email import EmailNotificationProvider
 from auditpulse_mvp.alerts.slack import SlackNotificationProvider
 from auditpulse_mvp.alerts.sms import SMSNotificationProvider
@@ -71,244 +76,250 @@ def sample_payload():
 
 class TestEmailNotificationProvider:
     """Tests for the email notification provider."""
-    
+
     @pytest.mark.asyncio
     async def test_is_configured(self):
         """Test the is_configured method."""
         # Test with API key
         provider = EmailNotificationProvider(api_key="test_key")
         assert await provider.is_configured() is True
-        
+
         # Test without API key
         provider = EmailNotificationProvider(api_key=None)
         assert await provider.is_configured() is False
-    
+
     @pytest.mark.asyncio
     async def test_send_email_success(self, sample_payload):
         """Test sending an email successfully."""
         provider = EmailNotificationProvider(api_key="test_key")
-        
+
         # Mock the httpx response
         mock_response = Response(200, json={"status": "ok"})
-        
+
         with patch("httpx.AsyncClient.post", return_value=mock_response):
             result = await provider.send("test@example.com", sample_payload)
-            
+
         assert result == NotificationStatus.SENT
-    
+
     @pytest.mark.asyncio
     async def test_send_email_failure(self, sample_payload):
         """Test sending an email with failure."""
         provider = EmailNotificationProvider(api_key="test_key")
-        
+
         # Mock the httpx response
         mock_response = Response(400, json={"error": "Bad request"})
-        
+
         with patch("httpx.AsyncClient.post", return_value=mock_response):
             result = await provider.send("test@example.com", sample_payload)
-            
+
         assert result == NotificationStatus.FAILED
-    
+
     @pytest.mark.asyncio
     async def test_send_email_exception(self, sample_payload):
         """Test sending an email with an exception."""
         provider = EmailNotificationProvider(api_key="test_key")
-        
+
         with patch("httpx.AsyncClient.post", side_effect=Exception("Test error")):
             result = await provider.send("test@example.com", sample_payload)
-            
+
         assert result == NotificationStatus.FAILED
-    
+
     @pytest.mark.asyncio
     async def test_send_email_invalid_recipient(self, sample_payload):
         """Test sending an email with an invalid recipient."""
         provider = EmailNotificationProvider(api_key="test_key")
-        
+
         result = await provider.send("invalid-email", sample_payload)
-            
+
         assert result == NotificationStatus.FAILED
 
 
 class TestSlackNotificationProvider:
     """Tests for the Slack notification provider."""
-    
+
     @pytest.mark.asyncio
     async def test_is_configured(self):
         """Test the is_configured method."""
         # Test with API key
         provider = SlackNotificationProvider(bot_token="test_token")
         assert await provider.is_configured() is True
-        
+
         # Test without API key
         provider = SlackNotificationProvider(bot_token=None)
         assert await provider.is_configured() is False
-    
+
     @pytest.mark.asyncio
     async def test_send_slack_success(self, sample_payload):
         """Test sending a Slack message successfully."""
         provider = SlackNotificationProvider(bot_token="test_token")
-        
+
         # Mock the httpx response
         mock_response = Response(200, json={"ok": True})
-        
+
         with patch("httpx.AsyncClient.post", return_value=mock_response):
             result = await provider.send("C12345678", sample_payload)
-            
+
         assert result == NotificationStatus.SENT
-    
+
     @pytest.mark.asyncio
     async def test_send_slack_failure(self, sample_payload):
         """Test sending a Slack message with failure."""
         provider = SlackNotificationProvider(bot_token="test_token")
-        
+
         # Mock the httpx response
         mock_response = Response(200, json={"ok": False, "error": "invalid_channel"})
-        
+
         with patch("httpx.AsyncClient.post", return_value=mock_response):
             result = await provider.send("invalid-channel", sample_payload)
-            
+
         assert result == NotificationStatus.FAILED
 
 
 class TestSMSNotificationProvider:
     """Tests for the SMS notification provider."""
-    
+
     @pytest.mark.asyncio
     async def test_is_configured(self):
         """Test the is_configured method."""
         # Test with credentials
         provider = SMSNotificationProvider(
-            account_sid="test_sid", 
-            auth_token="test_token"
+            account_sid="test_sid", auth_token="test_token"
         )
         assert await provider.is_configured() is True
-        
+
         # Test without credentials
-        provider = SMSNotificationProvider(
-            account_sid=None, 
-            auth_token=None
-        )
+        provider = SMSNotificationProvider(account_sid=None, auth_token=None)
         assert await provider.is_configured() is False
-    
+
     @pytest.mark.asyncio
     async def test_send_sms_success(self, sample_payload):
         """Test sending an SMS successfully."""
         provider = SMSNotificationProvider(
-            account_sid="test_sid", 
-            auth_token="test_token"
+            account_sid="test_sid", auth_token="test_token"
         )
-        
+
         # Mock the httpx response
         mock_response = Response(201, json={"sid": "SM123456"})
-        
+
         with patch("httpx.AsyncClient.post", return_value=mock_response):
             result = await provider.send("+15551234567", sample_payload)
-            
+
         assert result == NotificationStatus.SENT
-    
+
     @pytest.mark.asyncio
     async def test_send_sms_invalid_phone(self, sample_payload):
         """Test sending an SMS with an invalid phone number."""
         provider = SMSNotificationProvider(
-            account_sid="test_sid", 
-            auth_token="test_token"
+            account_sid="test_sid", auth_token="test_token"
         )
-        
+
         result = await provider.send("invalid-phone", sample_payload)
-            
+
         assert result == NotificationStatus.FAILED
 
 
 class TestNotificationService:
     """Tests for the notification service."""
-    
+
     @pytest.fixture
     def mock_service(self):
         """Create a mock notification service for testing."""
         email_provider = MagicMock()
         email_provider.is_configured = AsyncMock(return_value=True)
         email_provider.send = AsyncMock(return_value=NotificationStatus.SENT)
-        
+
         slack_provider = MagicMock()
         slack_provider.is_configured = AsyncMock(return_value=True)
         slack_provider.send = AsyncMock(return_value=NotificationStatus.SENT)
-        
+
         sms_provider = MagicMock()
         sms_provider.is_configured = AsyncMock(return_value=True)
         sms_provider.send = AsyncMock(return_value=NotificationStatus.SENT)
-        
+
         service = NotificationService(
             email_provider=email_provider,
             slack_provider=slack_provider,
             sms_provider=sms_provider,
         )
-        
+
         return service
-    
+
     @pytest.mark.asyncio
-    async def test_send_anomaly_notification(self, mock_service, mock_anomaly, mock_user):
+    async def test_send_anomaly_notification(
+        self, mock_service, mock_anomaly, mock_user
+    ):
         """Test sending notifications for an anomaly."""
         # Mock the database session
         db = AsyncMock()
-        
+
         # Mock getting the anomaly
         mock_service._get_anomaly_with_related = AsyncMock(return_value=mock_anomaly)
-        
+
         # Mock getting the notification recipients
         mock_service._get_notification_recipients = AsyncMock(return_value=[mock_user])
-        
+
         # Mock marking the notification as sent
         mock_service._mark_notification_sent = AsyncMock()
-        
+
         # Call the method
         result = await mock_service.send_anomaly_notification(mock_anomaly.id, db)
-        
+
         # Verify the results
         assert result["email"] == NotificationStatus.SENT
         assert result["slack"] == NotificationStatus.SENT
         assert result["sms"] == NotificationStatus.SENT
-        
+
         # Verify the mocks were called
-        mock_service._get_anomaly_with_related.assert_called_once_with(mock_anomaly.id, db)
-        mock_service._get_notification_recipients.assert_called_once_with(mock_anomaly.tenant_id, db)
-        mock_service._mark_notification_sent.assert_called_once_with(mock_anomaly.id, db)
-        
+        mock_service._get_anomaly_with_related.assert_called_once_with(
+            mock_anomaly.id, db
+        )
+        mock_service._get_notification_recipients.assert_called_once_with(
+            mock_anomaly.tenant_id, db
+        )
+        mock_service._mark_notification_sent.assert_called_once_with(
+            mock_anomaly.id, db
+        )
+
         # Verify the providers were called
         mock_service.email_provider.send.assert_called_once()
         mock_service.slack_provider.send.assert_called_once()
         mock_service.sms_provider.send.assert_called_once()
-    
+
     @pytest.mark.asyncio
-    async def test_send_anomaly_notification_already_sent(self, mock_service, mock_anomaly):
+    async def test_send_anomaly_notification_already_sent(
+        self, mock_service, mock_anomaly
+    ):
         """Test sending notifications for an anomaly that was already notified."""
         # Mock the database session
         db = AsyncMock()
-        
+
         # Set the notification_sent flag
         mock_anomaly.notification_sent = True
-        
+
         # Mock getting the anomaly
         mock_service._get_anomaly_with_related = AsyncMock(return_value=mock_anomaly)
-        
+
         # Call the method
-        result = await mock_service.send_anomaly_notification(mock_anomaly.id, db, force=False)
-        
+        result = await mock_service.send_anomaly_notification(
+            mock_anomaly.id, db, force=False
+        )
+
         # Verify the results (should be sent status even though not actually sent)
         assert result["email"] == NotificationStatus.SENT
         assert result["slack"] == NotificationStatus.SENT
         assert result["sms"] == NotificationStatus.SENT
-        
+
         # Verify the providers were not called
         mock_service.email_provider.send.assert_not_called()
         mock_service.slack_provider.send.assert_not_called()
         mock_service.sms_provider.send.assert_not_called()
-    
+
     @pytest.mark.asyncio
     async def test_create_notification_payload(self, mock_service, mock_anomaly):
         """Test creating a notification payload from an anomaly."""
         # Call the method
         payload = mock_service._create_notification_payload(mock_anomaly)
-        
+
         # Verify the payload
         assert payload.tenant_id == mock_anomaly.tenant_id
         assert payload.anomaly_id == mock_anomaly.id
@@ -317,11 +328,13 @@ class TestNotificationService:
         assert payload.risk_score == mock_anomaly.risk_score
         assert payload.explanation == mock_anomaly.explanation
         assert "/dashboard/anomalies/" in payload.dashboard_url
-        
+
         # Verify risk level and priority
         assert payload.risk_level == "high"  # Based on risk_score of 75
-        assert payload.priority == NotificationPriority.HIGH  # Based on risk_score of 75
-    
+        assert (
+            payload.priority == NotificationPriority.HIGH
+        )  # Based on risk_score of 75
+
     @pytest.mark.asyncio
     async def test_get_risk_level(self, mock_service):
         """Test getting risk level from score."""
@@ -332,7 +345,7 @@ class TestNotificationService:
         assert mock_service._get_risk_level(65) == "high"
         assert mock_service._get_risk_level(85) == "critical"
         assert mock_service._get_risk_level(100) == "critical"
-    
+
     @pytest.mark.asyncio
     async def test_get_priority_from_risk(self, mock_service):
         """Test getting priority from risk score."""
@@ -343,4 +356,6 @@ class TestNotificationService:
         assert mock_service._get_priority_from_risk(75) == NotificationPriority.HIGH
         assert mock_service._get_priority_from_risk(85) == NotificationPriority.HIGH
         assert mock_service._get_priority_from_risk(95) == NotificationPriority.CRITICAL
-        assert mock_service._get_priority_from_risk(100) == NotificationPriority.CRITICAL 
+        assert (
+            mock_service._get_priority_from_risk(100) == NotificationPriority.CRITICAL
+        )

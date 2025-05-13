@@ -3,6 +3,7 @@
 This module provides functionality for managing database sessions,
 including session creation, dependency injection, and context management.
 """
+
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -29,7 +30,7 @@ AsyncSessionLocal = sessionmaker(
 @asynccontextmanager
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Get a database session.
-    
+
     Yields:
         AsyncSession: Database session.
     """
@@ -41,4 +42,4 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.rollback()
             raise
         finally:
-            await session.close() 
+            await session.close()

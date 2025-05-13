@@ -3,6 +3,7 @@
 This module provides scheduling functionality for periodic processing of
 user feedback and model retraining.
 """
+
 import asyncio
 import logging
 from datetime import datetime, time, timedelta
@@ -26,14 +27,14 @@ logger = logging.getLogger(__name__)
 
 class FeedbackLearningScheduler:
     """Scheduler for continuous learning operations.
-    
+
     This class handles scheduling of periodic feedback processing and
     model retraining based on user feedback.
     """
-    
+
     def __init__(self, db_session: AsyncSession = Depends(get_db_session)):
         """Initialize the learning scheduler.
-        
+
         Args:
             db_session: Database session for data access.
         """
@@ -41,23 +42,23 @@ class FeedbackLearningScheduler:
         self.feedback_learner = FeedbackLearner(db_session=db_session)
         self._learning_task = None
         self._is_running = False
-    
+
     async def start(self):
         """Start the scheduler."""
         if self._is_running:
             logger.warning("Feedback Learning Scheduler is already running")
             return
-        
+
         self._is_running = True
         self._learning_task = asyncio.create_task(self._schedule_nightly_learning())
         logger.info("Feedback Learning Scheduler started")
-    
+
     async def stop(self):
         """Stop the scheduler."""
         if not self._is_running:
             logger.warning("Feedback Learning Scheduler is not running")
             return
-        
+
         self._is_running = False
         if self._learning_task:
             self._learning_task.cancel()
@@ -66,9 +67,9 @@ class FeedbackLearningScheduler:
             except asyncio.CancelledError:
                 pass
             self._learning_task = None
-        
+
         logger.info("Feedback Learning Scheduler stopped")
-    
+
     async def _schedule_nightly_learning(self):
         """Schedule nightly learning processes at the specified time."""
         try:
@@ -79,13 +80,13 @@ class FeedbackLearningScheduler:
                     hour=settings.feedback_learning_hour or 3,  # Default to 3 AM
                     minute=settings.feedback_learning_minute or 0,
                 )
-                
+
                 target_datetime = datetime.combine(now.date(), target_time)
-                
+
                 # If we've already passed today's target time, schedule for tomorrow
                 if now.time() >= target_time:
                     target_datetime += timedelta(days=1)
-                
+
                 # Calculate the wait time
                 wait_seconds = (target_datetime - now).total_seconds()
                 logger.info(
@@ -93,14 +94,16 @@ class FeedbackLearningScheduler:
                     f"{target_datetime.strftime('%Y-%m-%d %H:%M:%S')} "
                     f"(in {wait_seconds:.2f} seconds)"
                 )
-                
+
                 # Wait until the scheduled time
                 await asyncio.sleep(wait_seconds)
-                
+
                 # Perform learning
-                if self._is_running:  # Check again in case we were stopped during the wait
+                if (
+                    self._is_running
+                ):  # Check again in case we were stopped during the wait
                     await self._run_feedback_learning()
-                
+
         except asyncio.CancelledError:
             logger.info("Feedback Learning Scheduler task cancelled")
             raise
@@ -110,26 +113,30 @@ class FeedbackLearningScheduler:
                 # Restart the scheduler after a delay
                 await asyncio.sleep(60)
                 asyncio.create_task(self._schedule_nightly_learning())
-    
+
     async def _run_feedback_learning(self):
         """Run the feedback learning process for all tenants."""
         try:
             start_time = datetime.now()
-            logger.info(f"Starting scheduled feedback learning at {start_time.isoformat()}")
-            
+            logger.info(
+                f"Starting scheduled feedback learning at {start_time.isoformat()}"
+            )
+
             # Get all active tenants
             stmt = select(Tenant).where(Tenant.is_active == True)
             result = await self.db_session.execute(stmt)
             tenants = result.scalars().all()
-            
+
             # Process each tenant
             results = {}
             for tenant in tenants:
                 try:
                     # Process feedback for this tenant
-                    tenant_result = await update_thresholds_from_feedback(tenant.id, self.db_session)
+                    tenant_result = await update_thresholds_from_feedback(
+                        tenant.id, self.db_session
+                    )
                     results[str(tenant.id)] = tenant_result
-                    
+
                     if tenant_result["status"] == "success":
                         logger.info(
                             f"Successfully processed feedback for tenant {tenant.id}: "
@@ -147,27 +154,33 @@ class FeedbackLearningScheduler:
                             f"{tenant_result.get('error', 'Unknown error')}"
                         )
                 except Exception as e:
-                    logger.exception(f"Error processing feedback for tenant {tenant.id}: {e}")
+                    logger.exception(
+                        f"Error processing feedback for tenant {tenant.id}: {e}"
+                    )
                     results[str(tenant.id)] = {
                         "status": "error",
                         "error": str(e),
                     }
-            
+
             # Calculate success rate
             total_tenants = len(tenants)
-            success_count = sum(1 for r in results.values() if r.get("status") == "success")
-            skipped_count = sum(1 for r in results.values() if r.get("status") == "skipped")
+            success_count = sum(
+                1 for r in results.values() if r.get("status") == "success"
+            )
+            skipped_count = sum(
+                1 for r in results.values() if r.get("status") == "skipped"
+            )
             error_count = sum(1 for r in results.values() if r.get("status") == "error")
-            
+
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
-            
+
             logger.info(
                 f"Completed scheduled feedback learning in {duration:.2f} seconds. "
                 f"Results: {success_count} successful, {skipped_count} skipped, {error_count} errors "
                 f"out of {total_tenants} tenants."
             )
-            
+
             return {
                 "status": "completed",
                 "start_time": start_time.isoformat(),
@@ -185,14 +198,14 @@ class FeedbackLearningScheduler:
                 "status": "error",
                 "error": str(e),
             }
-    
+
     async def run_immediate_learning(self, tenant_id=None):
         """Run feedback learning immediately, outside the schedule.
-        
+
         Args:
             tenant_id: Optional tenant ID to process only one tenant.
                       If None, process all active tenants.
-                      
+
         Returns:
             Dict containing the results of the learning process.
         """
@@ -208,12 +221,14 @@ class FeedbackLearningScheduler:
 _feedback_learning_scheduler: Optional[FeedbackLearningScheduler] = None
 
 
-async def get_feedback_learning_scheduler(db_session: AsyncSession = Depends(get_db_session)) -> FeedbackLearningScheduler:
+async def get_feedback_learning_scheduler(
+    db_session: AsyncSession = Depends(get_db_session),
+) -> FeedbackLearningScheduler:
     """Get or create the global feedback learning scheduler instance.
-    
+
     Args:
         db_session: Database session for data access.
-        
+
     Returns:
         FeedbackLearningScheduler: The global feedback learning scheduler instance.
     """
@@ -236,4 +251,4 @@ async def stop_feedback_learning_scheduler():
     global _feedback_learning_scheduler
     if _feedback_learning_scheduler is not None:
         await _feedback_learning_scheduler.stop()
-        logger.info("Feedback Learning Scheduler stopped on application shutdown") 
+        logger.info("Feedback Learning Scheduler stopped on application shutdown")

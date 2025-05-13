@@ -2,6 +2,7 @@
 
 This module provides API endpoints for user authentication and authorization.
 """
+
 import logging
 from datetime import datetime, timedelta
 from enum import Enum
@@ -15,7 +16,11 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auditpulse_mvp.api.deps import (
-    get_current_user, require_admin, get_current_tenant, log_audit_action, AuditAction
+    get_current_user,
+    require_admin,
+    get_current_tenant,
+    log_audit_action,
+    AuditAction,
 )
 from auditpulse_mvp.database.models import User, Tenant
 from auditpulse_mvp.database.session import get_db
@@ -28,6 +33,7 @@ router = APIRouter()
 
 class UserRole(str, Enum):
     """User roles in the system."""
+
     ADMIN = "admin"
     AUDITOR = "auditor"
     VIEWER = "viewer"
@@ -35,6 +41,7 @@ class UserRole(str, Enum):
 
 class LoginProvider(str, Enum):
     """Authentication providers."""
+
     AUTH0 = "auth0"
     EMAIL = "email"
     GOOGLE = "google"
@@ -43,17 +50,22 @@ class LoginProvider(str, Enum):
 
 class AuthSettings(BaseModel):
     """Authentication settings."""
+
     auth0_domain: str = Field(settings.AUTH0_DOMAIN, description="Auth0 domain")
-    auth0_client_id: str = Field(settings.AUTH0_CLIENT_ID, description="Auth0 client ID")
-    auth0_audience: str = Field(settings.AUTH0_AUDIENCE, description="Auth0 API audience")
+    auth0_client_id: str = Field(
+        settings.AUTH0_CLIENT_ID, description="Auth0 client ID"
+    )
+    auth0_audience: str = Field(
+        settings.AUTH0_AUDIENCE, description="Auth0 API audience"
+    )
     login_providers: List[LoginProvider] = Field(
-        ["auth0", "email"],
-        description="Available login providers"
+        ["auth0", "email"], description="Available login providers"
     )
 
 
 class UserProfile(BaseModel):
     """User profile information."""
+
     id: UUID
     email: EmailStr
     full_name: str
@@ -73,6 +85,7 @@ class UserProfile(BaseModel):
 
 class UserUpdate(BaseModel):
     """User profile update model."""
+
     full_name: Optional[str] = None
     email_notifications: Optional[bool] = None
     slack_notifications: Optional[bool] = None
@@ -88,7 +101,7 @@ class UserUpdate(BaseModel):
 )
 async def get_auth_settings() -> AuthSettings:
     """Get authentication settings for the frontend.
-    
+
     Returns:
         AuthSettings: Authentication configuration
     """
@@ -97,9 +110,10 @@ async def get_auth_settings() -> AuthSettings:
         auth0_client_id=settings.AUTH0_CLIENT_ID,
         auth0_audience=settings.AUTH0_AUDIENCE,
         login_providers=[
-            provider for provider in LoginProvider 
+            provider
+            for provider in LoginProvider
             if getattr(settings, f"ENABLE_{provider.upper()}_LOGIN", True)
-        ]
+        ],
     )
 
 
@@ -112,10 +126,10 @@ async def get_current_user_profile(
     current_user: User = Depends(get_current_user),
 ) -> UserProfile:
     """Get the current authenticated user's profile.
-    
+
     Args:
         current_user: Current authenticated user
-        
+
     Returns:
         UserProfile: User profile information
     """
@@ -123,28 +137,30 @@ async def get_current_user_profile(
     permissions = []
     if current_user.role == UserRole.ADMIN.value:
         permissions = [
-            "read:anomalies", "write:anomalies", 
-            "read:transactions", "write:transactions",
-            "read:users", "write:users",
-            "read:settings", "write:settings",
-            "read:tenants", "write:tenants",
-            "trigger:sync"
+            "read:anomalies",
+            "write:anomalies",
+            "read:transactions",
+            "write:transactions",
+            "read:users",
+            "write:users",
+            "read:settings",
+            "write:settings",
+            "read:tenants",
+            "write:tenants",
+            "trigger:sync",
         ]
     elif current_user.role == UserRole.AUDITOR.value:
         permissions = [
-            "read:anomalies", "write:anomalies", 
+            "read:anomalies",
+            "write:anomalies",
             "read:transactions",
             "read:users",
             "read:settings",
-            "trigger:sync"
+            "trigger:sync",
         ]
     elif current_user.role == UserRole.VIEWER.value:
-        permissions = [
-            "read:anomalies",
-            "read:transactions",
-            "read:settings"
-        ]
-    
+        permissions = ["read:anomalies", "read:transactions", "read:settings"]
+
     return UserProfile(
         id=current_user.id,
         email=current_user.email,
@@ -175,34 +191,30 @@ async def update_current_user_profile(
     current_user: User = Depends(get_current_user),
 ) -> UserProfile:
     """Update the current authenticated user's profile.
-    
+
     Args:
         updates: User profile updates
         db: Database session
         current_user: Current authenticated user
-        
+
     Returns:
         UserProfile: Updated user profile
     """
     # Build update dictionary with only provided fields
     update_data = updates.dict(exclude_unset=True)
-    
+
     if update_data:
         # Add updated_at timestamp
         update_data["updated_at"] = datetime.utcnow()
-        
+
         # Execute update
-        stmt = (
-            update(User)
-            .where(User.id == current_user.id)
-            .values(**update_data)
-        )
+        stmt = update(User).where(User.id == current_user.id).values(**update_data)
         await db.execute(stmt)
         await db.commit()
-        
+
         # Refresh user object from database
         await db.refresh(current_user)
-        
+
         # Log the change
         await log_audit_action(
             db=db,
@@ -215,7 +227,7 @@ async def update_current_user_profile(
                 details={"updated_fields": list(update_data.keys())},
             ),
         )
-    
+
     # Return updated profile
     return await get_current_user_profile(current_user=current_user)
 
@@ -231,25 +243,25 @@ async def auth0_callback(
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
     """Handle Auth0 callback after user authentication.
-    
+
     Args:
         request: Request object
         code: Authorization code from Auth0
         state: State parameter from Auth0
         db: Database session
-        
+
     Returns:
         Dict: User information and tokens
     """
     # In a real implementation, this would exchange the code for tokens
     # and create or update the user in the database based on the Auth0 profile
-    
+
     # For the MVP, we'll just log the callback
     logger.info(f"Auth0 callback received with code={code}, state={state}")
-    
+
     # Return a mock response
     return {
         "success": True,
         "message": "Auth0 callback processed",
-        "next": "/dashboard"
-    } 
+        "next": "/dashboard",
+    }

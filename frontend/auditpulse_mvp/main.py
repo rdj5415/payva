@@ -37,14 +37,14 @@ logger = logging.getLogger("auditpulse")
 async def lifespan(app: FastAPI):
     """
     Context manager for FastAPI app lifespan.
-    
+
     This handles startup and shutdown events for the application.
     On startup, initializes required components like notification templates.
     On shutdown, ensures proper cleanup of resources.
     """
     # Startup event
     logger.info("Starting Bungii application")
-    
+
     # Create a DB session for initialization tasks
     db = SessionLocal()
     try:
@@ -57,9 +57,9 @@ async def lifespan(app: FastAPI):
         logger.error(f"Error initializing templates: {e}")
     finally:
         db.close()
-    
+
     yield
-    
+
     # Shutdown event
     logger.info("Shutting down Bungii application")
 
@@ -156,6 +156,7 @@ app.openapi_tags = [
     },
 ]
 
+
 # Custom Swagger UI and ReDoc routes
 @app.get("/api/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
@@ -169,6 +170,7 @@ async def custom_swagger_ui_html():
         swagger_favicon_url="/static/favicon.ico",
     )
 
+
 @app.get("/api/redoc", include_in_schema=False)
 async def redoc_html():
     """Serve ReDoc documentation."""
@@ -179,12 +181,18 @@ async def redoc_html():
         redoc_favicon_url="/static/favicon.ico",
     )
 
+
 # Health check endpoint
-@app.get("/health", tags=["health"], summary="System Health Check", response_model=Dict[str, Any])
+@app.get(
+    "/health",
+    tags=["health"],
+    summary="System Health Check",
+    response_model=Dict[str, Any],
+)
 async def health_check():
     """
     Health check endpoint.
-    
+
     Returns basic application health information including service status,
     version, environment, and timestamp. Used for monitoring and automated health checks.
     """
@@ -193,12 +201,9 @@ async def health_check():
         "version": "1.0.0",
         "environment": settings.ENVIRONMENT,
         "timestamp": settings.current_timestamp(),
-        "services": {
-            "api": "available",
-            "database": "connected",
-            "redis": "connected"
-        }
+        "services": {"api": "available", "database": "connected", "redis": "connected"},
     }
+
 
 # Exception handlers
 @app.exception_handler(HTTPException)
@@ -209,15 +214,16 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         content={
             "detail": exc.detail,
             "status_code": exc.status_code,
-            "type": "http_exception"
+            "type": "http_exception",
         },
     )
+
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     """
     Handle general exceptions with secure error messages.
-    
+
     Logs the full exception details but returns a generic error message to clients
     to prevent information disclosure.
     """
@@ -227,10 +233,12 @@ async def general_exception_handler(request: Request, exc: Exception):
         content={
             "detail": "Internal server error",
             "status_code": 500,
-            "type": "server_error"
+            "type": "server_error",
         },
     )
 
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)

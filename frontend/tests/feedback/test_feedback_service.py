@@ -3,6 +3,7 @@
 This module contains tests for the feedback service functionality,
 including feedback submission, statistics retrieval, and ML training data updates.
 """
+
 import datetime
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -69,41 +70,48 @@ async def test_submit_feedback_success(
 ):
     """Test successful feedback submission."""
     # Setup
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_anomaly
-    
-    with patch("auditpulse_mvp.feedback.feedback_service.get_ml_engine", return_value=mock_ml_engine), \
-         patch("auditpulse_mvp.feedback.feedback_service.get_risk_engine", return_value=mock_risk_engine):
-        
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_anomaly
+    )
+
+    with patch(
+        "auditpulse_mvp.feedback.feedback_service.get_ml_engine",
+        return_value=mock_ml_engine,
+    ), patch(
+        "auditpulse_mvp.feedback.feedback_service.get_risk_engine",
+        return_value=mock_risk_engine,
+    ):
+
         service = FeedbackService(mock_db_session)
-        
+
         # Create feedback request
         feedback = FeedbackRequest(
             anomaly_id=mock_anomaly.id,
             feedback_type=FeedbackType.TRUE_POSITIVE,
             resolution_notes="Test feedback",
         )
-        
+
         # Submit feedback
         response = await service.submit_feedback(
             tenant_id=mock_anomaly.tenant_id,
             feedback=feedback,
         )
-        
+
         # Verify response
         assert response.success
         assert response.anomaly_id == mock_anomaly.id
         assert response.feedback_type == feedback.feedback_type
         assert response.timestamp is not None
-        
+
         # Verify anomaly update
         assert mock_anomaly.is_resolved
         assert mock_anomaly.feedback_type == feedback.feedback_type
         assert mock_anomaly.resolution_notes == feedback.resolution_notes
         assert mock_anomaly.resolved_at is not None
-        
+
         # Verify ML training data update
         mock_ml_engine.add_training_example.assert_called_once()
-        
+
         # Verify risk scoring update (should not be called for TRUE_POSITIVE)
         mock_risk_engine.adjust_risk_scoring.assert_not_called()
 
@@ -117,29 +125,36 @@ async def test_submit_feedback_false_positive(
 ):
     """Test feedback submission for false positive."""
     # Setup
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_anomaly
-    
-    with patch("auditpulse_mvp.feedback.feedback_service.get_ml_engine", return_value=mock_ml_engine), \
-         patch("auditpulse_mvp.feedback.feedback_service.get_risk_engine", return_value=mock_risk_engine):
-        
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_anomaly
+    )
+
+    with patch(
+        "auditpulse_mvp.feedback.feedback_service.get_ml_engine",
+        return_value=mock_ml_engine,
+    ), patch(
+        "auditpulse_mvp.feedback.feedback_service.get_risk_engine",
+        return_value=mock_risk_engine,
+    ):
+
         service = FeedbackService(mock_db_session)
-        
+
         # Create feedback request
         feedback = FeedbackRequest(
             anomaly_id=mock_anomaly.id,
             feedback_type=FeedbackType.FALSE_POSITIVE,
             resolution_notes="Test feedback",
         )
-        
+
         # Submit feedback
         response = await service.submit_feedback(
             tenant_id=mock_anomaly.tenant_id,
             feedback=feedback,
         )
-        
+
         # Verify response
         assert response.success
-        
+
         # Verify risk scoring update
         mock_risk_engine.adjust_risk_scoring.assert_called_once_with(
             transaction=mock_anomaly.transaction,
@@ -156,29 +171,36 @@ async def test_submit_feedback_false_negative(
 ):
     """Test feedback submission for false negative."""
     # Setup
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_anomaly
-    
-    with patch("auditpulse_mvp.feedback.feedback_service.get_ml_engine", return_value=mock_ml_engine), \
-         patch("auditpulse_mvp.feedback.feedback_service.get_risk_engine", return_value=mock_risk_engine):
-        
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_anomaly
+    )
+
+    with patch(
+        "auditpulse_mvp.feedback.feedback_service.get_ml_engine",
+        return_value=mock_ml_engine,
+    ), patch(
+        "auditpulse_mvp.feedback.feedback_service.get_risk_engine",
+        return_value=mock_risk_engine,
+    ):
+
         service = FeedbackService(mock_db_session)
-        
+
         # Create feedback request
         feedback = FeedbackRequest(
             anomaly_id=mock_anomaly.id,
             feedback_type=FeedbackType.FALSE_NEGATIVE,
             resolution_notes="Test feedback",
         )
-        
+
         # Submit feedback
         response = await service.submit_feedback(
             tenant_id=mock_anomaly.tenant_id,
             feedback=feedback,
         )
-        
+
         # Verify response
         assert response.success
-        
+
         # Verify risk scoring update
         mock_risk_engine.adjust_risk_scoring.assert_called_once_with(
             transaction=mock_anomaly.transaction,
@@ -195,26 +217,31 @@ async def test_submit_feedback_not_found(
     """Test feedback submission for non-existent anomaly."""
     # Setup
     mock_db_session.query.return_value.filter.return_value.first.return_value = None
-    
-    with patch("auditpulse_mvp.feedback.feedback_service.get_ml_engine", return_value=mock_ml_engine), \
-         patch("auditpulse_mvp.feedback.feedback_service.get_risk_engine", return_value=mock_risk_engine):
-        
+
+    with patch(
+        "auditpulse_mvp.feedback.feedback_service.get_ml_engine",
+        return_value=mock_ml_engine,
+    ), patch(
+        "auditpulse_mvp.feedback.feedback_service.get_risk_engine",
+        return_value=mock_risk_engine,
+    ):
+
         service = FeedbackService(mock_db_session)
-        
+
         # Create feedback request
         feedback = FeedbackRequest(
             anomaly_id=uuid.uuid4(),
             feedback_type=FeedbackType.TRUE_POSITIVE,
             resolution_notes="Test feedback",
         )
-        
+
         # Submit feedback and expect exception
         with pytest.raises(HTTPException) as exc_info:
             await service.submit_feedback(
                 tenant_id=uuid.uuid4(),
                 feedback=feedback,
             )
-        
+
         assert exc_info.value.status_code == 404
 
 
@@ -228,20 +255,22 @@ async def test_get_feedback_stats(
     mock_anomaly.feedback_type = FeedbackType.TRUE_POSITIVE
     mock_anomaly.is_resolved = True
     mock_anomaly.resolved_at = datetime.datetime.now()
-    
-    mock_db_session.query.return_value.filter.return_value.all.return_value = [mock_anomaly]
-    
+
+    mock_db_session.query.return_value.filter.return_value.all.return_value = [
+        mock_anomaly
+    ]
+
     service = FeedbackService(mock_db_session)
-    
+
     # Get statistics
     stats = await service.get_feedback_stats(
         tenant_id=mock_anomaly.tenant_id,
     )
-    
+
     # Verify statistics
     assert stats["total_feedback"] == 1
     assert stats["feedback_types"][FeedbackType.TRUE_POSITIVE] == 1
     assert "accuracy_metrics" in stats
     assert "precision" in stats["accuracy_metrics"]
     assert "recall" in stats["accuracy_metrics"]
-    assert "f1_score" in stats["accuracy_metrics"] 
+    assert "f1_score" in stats["accuracy_metrics"]

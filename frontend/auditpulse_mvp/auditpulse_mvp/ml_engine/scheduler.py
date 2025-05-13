@@ -3,6 +3,7 @@
 This module provides the scheduling functionality for periodic ML operations
 such as nightly model retraining.
 """
+
 import asyncio
 import logging
 from datetime import datetime, time, timedelta
@@ -21,14 +22,14 @@ logger = logging.getLogger(__name__)
 
 class MLScheduler:
     """Scheduler for ML Engine operations.
-    
+
     This class handles scheduling recurring ML tasks, such as nightly model
     retraining for all tenants.
     """
 
     def __init__(self, db_session: AsyncSession = Depends(get_db_session)):
         """Initialize the scheduler.
-        
+
         Args:
             db_session: Database session for data access.
         """
@@ -36,23 +37,23 @@ class MLScheduler:
         self.ml_engine = MLEngine(db_session=db_session)
         self._retraining_task = None
         self._is_running = False
-    
+
     async def start(self):
         """Start the scheduler."""
         if self._is_running:
             logger.warning("ML Scheduler is already running")
             return
-        
+
         self._is_running = True
         self._retraining_task = asyncio.create_task(self._schedule_daily_retraining())
         logger.info("ML Scheduler started")
-    
+
     async def stop(self):
         """Stop the scheduler."""
         if not self._is_running:
             logger.warning("ML Scheduler is not running")
             return
-        
+
         self._is_running = False
         if self._retraining_task:
             self._retraining_task.cancel()
@@ -61,9 +62,9 @@ class MLScheduler:
             except asyncio.CancelledError:
                 pass
             self._retraining_task = None
-        
+
         logger.info("ML Scheduler stopped")
-    
+
     async def _schedule_daily_retraining(self):
         """Schedule daily model retraining at the specified time."""
         try:
@@ -74,13 +75,13 @@ class MLScheduler:
                     hour=settings.ml_retraining_hour,
                     minute=settings.ml_retraining_minute,
                 )
-                
+
                 target_datetime = datetime.combine(now.date(), target_time)
-                
+
                 # If we've already passed today's target time, schedule for tomorrow
                 if now.time() >= target_time:
                     target_datetime += timedelta(days=1)
-                
+
                 # Calculate the wait time
                 wait_seconds = (target_datetime - now).total_seconds()
                 logger.info(
@@ -88,14 +89,16 @@ class MLScheduler:
                     f"{target_datetime.strftime('%Y-%m-%d %H:%M:%S')} "
                     f"(in {wait_seconds:.2f} seconds)"
                 )
-                
+
                 # Wait until the scheduled time
                 await asyncio.sleep(wait_seconds)
-                
+
                 # Perform retraining
-                if self._is_running:  # Check again in case we were stopped during the wait
+                if (
+                    self._is_running
+                ):  # Check again in case we were stopped during the wait
                     await self._run_retraining()
-                
+
         except asyncio.CancelledError:
             logger.info("ML Scheduler task cancelled")
             raise
@@ -105,41 +108,47 @@ class MLScheduler:
                 # Restart the scheduler after a delay
                 await asyncio.sleep(60)
                 asyncio.create_task(self._schedule_daily_retraining())
-    
+
     async def _run_retraining(self):
         """Run the model retraining for all tenants."""
         try:
             start_time = datetime.now()
-            logger.info(f"Starting scheduled ML model retraining at {start_time.isoformat()}")
-            
+            logger.info(
+                f"Starting scheduled ML model retraining at {start_time.isoformat()}"
+            )
+
             # Run the retraining
             results = await self.ml_engine.retrain_all_tenant_models()
-            
+
             # Summarize results
-            success_count = sum(1 for r in results.values() if r.get("status") == "success")
+            success_count = sum(
+                1 for r in results.values() if r.get("status") == "success"
+            )
             error_count = sum(1 for r in results.values() if r.get("status") == "error")
-            skipped_count = sum(1 for r in results.values() if r.get("status") == "skipped")
-            
+            skipped_count = sum(
+                1 for r in results.values() if r.get("status") == "skipped"
+            )
+
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
-            
+
             logger.info(
                 f"Completed scheduled ML model retraining in {duration:.2f} seconds. "
                 f"Results: {success_count} successful, {error_count} errors, {skipped_count} skipped"
             )
-            
+
             # Log detailed results for errors
             for tenant_id, result in results.items():
                 if result.get("status") == "error":
                     logger.error(
                         f"Error retraining model for tenant {tenant_id}: {result.get('message')}"
                     )
-            
+
             return results
         except Exception as e:
             logger.exception(f"Error running scheduled ML model retraining: {e}")
             return {"status": "error", "error": str(e)}
-    
+
     async def run_immediate_retraining(self):
         """Run model retraining immediately, outside the schedule."""
         return await self._run_retraining()
@@ -149,12 +158,14 @@ class MLScheduler:
 _ml_scheduler: Optional[MLScheduler] = None
 
 
-async def get_ml_scheduler(db_session: AsyncSession = Depends(get_db_session)) -> MLScheduler:
+async def get_ml_scheduler(
+    db_session: AsyncSession = Depends(get_db_session),
+) -> MLScheduler:
     """Get or create the global ML scheduler instance.
-    
+
     Args:
         db_session: Database session for data access.
-        
+
     Returns:
         MLScheduler: The global ML scheduler instance.
     """
@@ -177,4 +188,4 @@ async def stop_ml_scheduler():
     global _ml_scheduler
     if _ml_scheduler is not None:
         await _ml_scheduler.stop()
-        logger.info("ML Scheduler stopped on application shutdown") 
+        logger.info("ML Scheduler stopped on application shutdown")

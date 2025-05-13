@@ -19,6 +19,7 @@ from auditpulse_mvp.utils.settings import get_settings, Settings
 
 logger = logging.getLogger(__name__)
 
+
 async def sync_plaid_transactions(
     user_id: str,
     institution_id: str,
@@ -28,7 +29,7 @@ async def sync_plaid_transactions(
     settings: Settings = None,
 ) -> Dict[str, Any]:
     """Sync transactions from Plaid for a financial institution.
-    
+
     Args:
         user_id: User ID
         institution_id: Financial institution ID
@@ -36,58 +37,60 @@ async def sync_plaid_transactions(
         end_date: End date for transactions (ISO format)
         db_session: Database session
         settings: Application settings
-        
+
     Returns:
         Dict[str, Any]: Sync result
     """
     # Get database session if not provided
     if db_session is None:
         db_session = await anext(get_db_session())
-        
+
     # Get settings if not provided
     if settings is None:
         settings = get_settings()
-        
+
     try:
         # Parse dates
-        start_date_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-        end_date_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-        
+        start_date_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+        end_date_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+
         # Get user
         stmt = select(User).where(User.id == uuid.UUID(user_id))
         result = await db_session.execute(stmt)
         user = result.scalar_one_or_none()
-        
+
         if not user:
             logger.error(f"User not found: {user_id}")
             return {"status": "error", "message": "User not found"}
-            
+
         # Get institution
-        stmt = select(FinancialInstitution).where(FinancialInstitution.id == uuid.UUID(institution_id))
+        stmt = select(FinancialInstitution).where(
+            FinancialInstitution.id == uuid.UUID(institution_id)
+        )
         result = await db_session.execute(stmt)
         institution = result.scalar_one_or_none()
-        
+
         if not institution:
             logger.error(f"Institution not found: {institution_id}")
             return {"status": "error", "message": "Institution not found"}
-            
+
         # Initialize Plaid client
         plaid_client = PlaidClient(settings=settings)
-        
+
         # Get transactions from Plaid
         transactions = await plaid_client.get_all_transactions(
             access_token=institution.plaid_access_token,
             start_date=start_date_dt,
             end_date=end_date_dt,
         )
-        
+
         # Save transactions to database
         await store_transactions(
             db_session=db_session,
             user=user,
             transactions=transactions,
         )
-        
+
         return {
             "status": "success",
             "transactions_count": len(transactions),
@@ -96,7 +99,7 @@ async def sync_plaid_transactions(
             "start_date": start_date,
             "end_date": end_date,
         }
-        
+
     except Exception as e:
         logger.error(f"Error syncing Plaid transactions: {e}")
         return {
@@ -107,33 +110,33 @@ async def sync_plaid_transactions(
             "start_date": start_date,
             "end_date": end_date,
         }
-        
+
+
 async def store_transactions(
     db_session: AsyncSession,
     user: User,
     transactions: List[Dict[str, Any]],
 ) -> int:
     """Store transactions in the database.
-    
+
     Args:
         db_session: Database session
         user: User object
         transactions: List of transaction dictionaries from Plaid
-        
+
     Returns:
         int: Number of transactions stored
     """
     stored_count = 0
-    
+
     for transaction_data in transactions:
         # Check if transaction already exists
-        stmt = (
-            select(FinancialTransaction)
-            .where(FinancialTransaction.transaction_id == transaction_data["transaction_id"])
+        stmt = select(FinancialTransaction).where(
+            FinancialTransaction.transaction_id == transaction_data["transaction_id"]
         )
         result = await db_session.execute(stmt)
         transaction = result.scalar_one_or_none()
-        
+
         if transaction:
             # Update existing transaction
             transaction.amount = transaction_data["amount"]
@@ -153,7 +156,9 @@ async def store_transactions(
                 account_id=transaction_data["account_id"],
                 transaction_id=transaction_data["transaction_id"],
                 amount=transaction_data["amount"],
-                date=datetime.fromisoformat(transaction_data["date"].replace('Z', '+00:00')),
+                date=datetime.fromisoformat(
+                    transaction_data["date"].replace("Z", "+00:00")
+                ),
                 name=transaction_data["name"],
                 merchant_name=transaction_data.get("merchant_name"),
                 pending=transaction_data["pending"],
@@ -167,6 +172,6 @@ async def store_transactions(
             )
             db_session.add(transaction)
             stored_count += 1
-            
+
     await db_session.commit()
-    return stored_count 
+    return stored_count

@@ -6,6 +6,7 @@ Features:
 - Retry with exponential backoff
 - Response sanitization
 """
+
 import asyncio
 import logging
 import json
@@ -44,31 +45,32 @@ class GPTEngine:
     """Engine for generating GPT-4 powered explanations for anomalies."""
 
     def __init__(
-        self, 
+        self,
         db_session: AsyncSession = Depends(get_db_session),
         api_key: Optional[str] = None,
     ):
         """Initialize the GPT Engine.
-        
+
         Args:
             db_session: The database session.
             api_key: Optional API key. If None, uses the settings.
         """
         self.db_session = db_session
         self.client = AsyncOpenAI(
-            api_key=api_key or settings.OPENAI_API_KEY.get_secret_value()
-            if settings.OPENAI_API_KEY else None
+            api_key=(
+                api_key or settings.OPENAI_API_KEY.get_secret_value()
+                if settings.OPENAI_API_KEY
+                else None
+            )
         )
-    
-    def _build_prompt(
-        self, transaction: Transaction, flags: List[Dict]
-    ) -> str:
+
+    def _build_prompt(self, transaction: Transaction, flags: List[Dict]) -> str:
         """Build a prompt for the GPT model.
-        
+
         Args:
             transaction: The transaction to explain.
             flags: The list of flags raised by the rules engine.
-            
+
         Returns:
             str: The prompt for the GPT model.
         """
@@ -83,13 +85,12 @@ class GPTEngine:
             f"Source: {transaction.source.value}\n"
             f"Account: {transaction.source_account_id}\n"
         )
-        
+
         # Format flags
-        flags_text = "\n".join([
-            f"- {flag['rule_name']}: {flag['description']}" 
-            for flag in flags
-        ])
-        
+        flags_text = "\n".join(
+            [f"- {flag['rule_name']}: {flag['description']}" for flag in flags]
+        )
+
         # Construct the complete prompt
         prompt = (
             "You are AuditPulse AI, an expert financial auditor assistant. "
@@ -108,13 +109,15 @@ class GPTEngine:
             "5. Use concise language (100 words maximum)\n\n"
             "Your response should be structured in 3 short paragraphs corresponding to points 1-3."
         )
-        
+
         return prompt
-    
+
     @retry(
         stop=stop_after_attempt(MAX_RETRIES),
         wait=wait_exponential(multiplier=1, min=4, max=60),
-        retry=retry_if_exception_type((openai.RateLimitError, openai.APITimeoutError, httpx.ReadTimeout)),
+        retry=retry_if_exception_type(
+            (openai.RateLimitError, openai.APITimeoutError, httpx.ReadTimeout)
+        ),
         reraise=True,
     )
     async def _call_openai_api(
@@ -125,16 +128,16 @@ class GPTEngine:
         max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> str:
         """Call the OpenAI API with a prompt.
-        
+
         Args:
             prompt: The prompt to send to the API.
             model: The model to use.
             temperature: The sampling temperature to use.
             max_tokens: The maximum number of tokens to generate.
-            
+
         Returns:
             str: The generated text.
-            
+
         Raises:
             HTTPException: If there's an error calling the API.
         """
@@ -143,31 +146,37 @@ class GPTEngine:
                 model=model,
                 messages=[
                     {"role": "system", "content": "You are a financial AI assistant."},
-                    {"role": "user", "content": prompt}
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
                 n=1,
                 stop=None,
             )
-            
+
             # Extract the generated text
             return response.choices[0].message.content.strip()
-            
-        except (openai.RateLimitError, openai.APITimeoutError, httpx.ReadTimeout) as exc:
+
+        except (
+            openai.RateLimitError,
+            openai.APITimeoutError,
+            httpx.ReadTimeout,
+        ) as exc:
             # These errors will be retried by the retry decorator
             logger.warning(f"OpenAI API temporary error (will retry): {exc}")
             raise
-            
+
         except openai.APIError as exc:
             # Try once with the fallback model if using the primary model
             if model == DEFAULT_MODEL:
-                logger.warning(f"Error with {model}, trying fallback model {FALLBACK_MODEL}")
+                logger.warning(
+                    f"Error with {model}, trying fallback model {FALLBACK_MODEL}"
+                )
                 return await self._call_openai_api(
-                    prompt, 
-                    model=FALLBACK_MODEL, 
-                    temperature=temperature, 
-                    max_tokens=max_tokens
+                    prompt,
+                    model=FALLBACK_MODEL,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
                 )
             else:
                 logger.error(f"OpenAI API error: {exc}")
@@ -175,75 +184,75 @@ class GPTEngine:
                     status_code=status.HTTP_502_BAD_GATEWAY,
                     detail=f"Error calling OpenAI API: {str(exc)}",
                 )
-            
+
         except Exception as exc:
             logger.error(f"Unexpected error calling OpenAI API: {exc}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Unexpected error calling OpenAI API: {str(exc)}",
             )
-    
+
     def _sanitize_response(self, response: str) -> str:
         """Sanitize the response from the GPT model.
-        
+
         Args:
             response: The response from the model.
-            
+
         Returns:
             str: The sanitized response.
         """
         # Strip any markdown formatting
-        sanitized = re.sub(r'```.*?```', '', response, flags=re.DOTALL)
-        
+        sanitized = re.sub(r"```.*?```", "", response, flags=re.DOTALL)
+
         # Remove any HTML tags
-        sanitized = re.sub(r'<.*?>', '', sanitized)
-        
+        sanitized = re.sub(r"<.*?>", "", sanitized)
+
         # Limit to 500 characters if it's too long
         if len(sanitized) > 500:
             sanitized = sanitized[:497] + "..."
-        
+
         return sanitized.strip()
-    
+
     async def generate_explanation(
-        self, 
-        transaction: Transaction, 
+        self,
+        transaction: Transaction,
         flags: List[Dict],
         model: str = DEFAULT_MODEL,
     ) -> str:
         """Generate an explanation for a transaction with anomaly flags.
-        
+
         Args:
             transaction: The transaction to explain.
             flags: The list of flags raised by the rules engine.
             model: The model to use. Defaults to DEFAULT_MODEL.
-            
+
         Returns:
             str: The generated explanation.
-            
+
         Raises:
             ValueError: If flags list is empty.
             HTTPException: If there's an error generating the explanation.
         """
         if not flags:
             raise ValueError("Cannot generate explanation without anomaly flags")
-        
+
         try:
             # Build the prompt
             prompt = self._build_prompt(transaction, flags)
-            
+
             # Call the API
             logger.info(f"Generating explanation for transaction {transaction.id}")
             response = await self._call_openai_api(prompt, model=model)
-            
+
             # Sanitize the response
             sanitized = self._sanitize_response(response)
-            
+
             return sanitized
-            
+
         except (openai.RateLimitError, openai.APITimeoutError) as exc:
             logger.error(f"Failed to generate explanation after retries: {exc}")
             return "Unable to generate explanation due to service limitations. Please try again later."
-            
+
         except Exception as exc:
             logger.error(f"Error generating explanation: {exc}")
             if isinstance(exc, HTTPException):
@@ -257,8 +266,8 @@ gpt_engine = GPTEngine()
 
 def get_gpt_engine() -> GPTEngine:
     """Dependency function for FastAPI to get the GPT engine.
-    
+
     Returns:
         GPTEngine: The GPT engine instance.
     """
-    return gpt_engine 
+    return gpt_engine

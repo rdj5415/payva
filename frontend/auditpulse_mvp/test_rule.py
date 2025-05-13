@@ -29,26 +29,26 @@ async def test_large_amount_rule():
         merchant_name="Test Vendor",
         transaction_date=datetime.datetime.now(),
     )
-    
+
     # Create and test a rule
     rule = LargeAmountRule(
         name="Test Large Amount",
         description="Test rule",
         threshold=10000.0,
     )
-    
+
     triggered, score, reason = await rule.evaluate(txn, {})
-    
+
     print("Rule triggered:", triggered)
     print("Score:", score)
     print("Reason:", reason)
-    
+
     assert triggered is True
     assert 0.0 < score <= 1.0
     assert "exceeds threshold" in reason
-    
+
     print("Test passed!")
 
 
 if __name__ == "__main__":
-    asyncio.run(test_large_amount_rule()) 
+    asyncio.run(test_large_amount_rule())

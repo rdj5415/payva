@@ -297,7 +297,7 @@ class User(Base):
 
     def get_permissions(self) -> Dict[str, List[str]]:
         """Get user permissions based on role."""
-        base_permissions = {
+        base_permissions: Dict[str, List[str]] = {
             "read": ["transactions", "accounts", "institutions", "anomalies"],
             "write": [],
             "admin": [],

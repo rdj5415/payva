@@ -2,6 +2,7 @@
 
 This module provides pytest fixtures for testing the rules engine.
 """
+
 import asyncio
 import os
 import sys
@@ -51,4 +52,4 @@ async def db_session(setup_database) -> AsyncGenerator[AsyncSession, None]:
     """Create a fresh database session for a test."""
     async with TestingSessionLocal() as session:
         yield session
-        await session.rollback() 
+        await session.rollback()

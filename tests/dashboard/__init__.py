@@ -1,1 +1,1 @@
-"""Tests for the dashboard module.""" 
+"""Tests for the dashboard module."""

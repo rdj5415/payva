@@ -2,6 +2,7 @@
 
 This module initializes the FastAPI application with all configurations.
 """
+
 import logging
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
@@ -21,7 +22,10 @@ from auditpulse_mvp.api.middleware import (
 from auditpulse_mvp.database.session import engine, SessionLocal
 from auditpulse_mvp.utils.settings import settings
 from auditpulse_mvp.ml_engine.scheduler import start_ml_scheduler, stop_ml_scheduler
-from auditpulse_mvp.learning.scheduler import start_feedback_learning_scheduler, stop_feedback_learning_scheduler
+from auditpulse_mvp.learning.scheduler import (
+    start_feedback_learning_scheduler,
+    stop_feedback_learning_scheduler,
+)
 
 # Configure logging based on settings
 logging.basicConfig(
@@ -34,32 +38,35 @@ logger = logging.getLogger("auditpulse_mvp")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Context manager to handle startup and shutdown events.
-    
+
     Args:
         app: FastAPI application instance
     """
-    # Startup 
+    # Startup
     logger.info("AuditPulse MVP is starting up...")
-    
+
     # Initialize ML scheduler if enabled
     if settings.enable_ml_engine and settings.enable_ml_scheduler:
-        from auditpulse_mvp.ml_engine.scheduler import get_ml_scheduler, start_ml_scheduler
-        
+        from auditpulse_mvp.ml_engine.scheduler import (
+            get_ml_scheduler,
+            start_ml_scheduler,
+        )
+
         logger.info("Initializing ML scheduler")
         scheduler = get_ml_scheduler()
         await start_ml_scheduler()
-    
+
     # Initialize notification scheduler if enabled
     if settings.enable_notifications:
         from auditpulse_mvp.alerts.scheduler import start_notification_scheduler
-        
+
         logger.info("Initializing notification scheduler")
         await start_notification_scheduler()
-    
+
     # Initialize feedback learning scheduler if enabled
     if settings.enable_feedback_learning:
         await start_feedback_learning_scheduler()
-    
+
     # Log enabled features
     logger.info(f"ML Engine enabled: {settings.enable_ml_engine}")
     logger.info(f"ML Scheduler enabled: {settings.enable_ml_scheduler}")
@@ -68,27 +75,27 @@ async def lifespan(app: FastAPI):
     logger.info(f"Notifications enabled: {settings.enable_notifications}")
     logger.info(f"Tenant isolation enabled: {settings.ENABLE_TENANT_ISOLATION}")
     logger.info(f"Auth0 integration enabled: {settings.ENABLE_AUTH0_LOGIN}")
-    
+
     # Yield control back to FastAPI
     yield
-    
+
     # Shutdown
     logger.info("AuditPulse MVP is shutting down...")
-    
+
     # Stop ML scheduler if it was started
     if settings.enable_ml_engine and settings.enable_ml_scheduler:
         from auditpulse_mvp.ml_engine.scheduler import stop_ml_scheduler
-        
+
         logger.info("Stopping ML scheduler")
         await stop_ml_scheduler()
-        
+
     # Stop notification scheduler if it was started
     if settings.enable_notifications:
         from auditpulse_mvp.alerts.scheduler import stop_notification_scheduler
-        
+
         logger.info("Stopping notification scheduler")
         await stop_notification_scheduler()
-    
+
     # Stop feedback learning scheduler if it was started
     if settings.enable_feedback_learning:
         await stop_feedback_learning_scheduler()
@@ -96,7 +103,7 @@ async def lifespan(app: FastAPI):
 
 def create_application() -> FastAPI:
     """Create and configure the FastAPI application.
-    
+
     Returns:
         FastAPI: Configured FastAPI application
     """
@@ -109,22 +116,24 @@ def create_application() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
     )
-    
+
     # Set up middlewares (CORS, tenant isolation, logging)
     setup_middlewares(app)
-    
+
     # Add API router
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)
-    
+
     # Add global exception handler
     @app.exception_handler(Exception)
-    async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    async def global_exception_handler(
+        request: Request, exc: Exception
+    ) -> JSONResponse:
         """Handle unhandled exceptions globally.
-        
+
         Args:
             request: FastAPI request
             exc: Exception raised
-            
+
         Returns:
             JSONResponse: JSON response with error details
         """
@@ -133,12 +142,12 @@ def create_application() -> FastAPI:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail": "Internal server error"},
         )
-    
+
     # Add health check endpoint
     @app.get("/health", tags=["health"])
     async def health_check() -> Dict[str, Any]:
         """Health check endpoint.
-        
+
         Returns:
             Dict: Health status information
         """
@@ -155,7 +164,7 @@ def create_application() -> FastAPI:
                 "feedback_learning": settings.enable_feedback_learning,
             },
         }
-    
+
     return app
 
 
@@ -170,4 +179,4 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=True,
-    ) 
+    )

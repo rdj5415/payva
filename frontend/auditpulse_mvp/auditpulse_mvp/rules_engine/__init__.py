@@ -19,4 +19,4 @@ __all__ = [
     "UnapprovedVendorRule",
     "StatisticalOutlierRule",
     "RulesEngine",
-] 
+]

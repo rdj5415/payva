@@ -3,6 +3,7 @@
 This module provides health check endpoints and system metrics collection
 for monitoring the application's health and performance.
 """
+
 import asyncio
 import logging
 import platform
@@ -28,14 +29,14 @@ router = APIRouter()
 
 class HealthCheck:
     """Health check functionality."""
-    
+
     def __init__(self):
         """Initialize health check."""
         self.start_time = datetime.now()
-    
+
     async def check_database(self) -> Dict[str, Any]:
         """Check database health.
-        
+
         Returns:
             Dict[str, Any]: Database health status.
         """
@@ -53,10 +54,10 @@ class HealthCheck:
                 "status": "unhealthy",
                 "error": str(e),
             }
-    
+
     async def check_redis(self) -> Dict[str, Any]:
         """Check Redis health.
-        
+
         Returns:
             Dict[str, Any]: Redis health status.
         """
@@ -65,7 +66,7 @@ class HealthCheck:
                 start_time = datetime.now()
                 response = await client.get(f"{settings.REDIS_URL}/ping")
                 latency = (datetime.now() - start_time).total_seconds() * 1000
-                
+
                 if response.status_code == 200:
                     return {
                         "status": "healthy",
@@ -82,10 +83,10 @@ class HealthCheck:
                 "status": "unhealthy",
                 "error": str(e),
             }
-    
+
     def get_system_metrics(self) -> Dict[str, Any]:
         """Get system metrics.
-        
+
         Returns:
             Dict[str, Any]: System metrics.
         """
@@ -108,7 +109,9 @@ class HealthCheck:
                 "system": {
                     "platform": platform.platform(),
                     "python_version": platform.python_version(),
-                    "uptime_seconds": (datetime.now() - self.start_time).total_seconds(),
+                    "uptime_seconds": (
+                        datetime.now() - self.start_time
+                    ).total_seconds(),
                 },
             }
         except Exception as e:
@@ -125,7 +128,7 @@ health_check = HealthCheck()
 @router.get("/health")
 async def health_check_endpoint() -> Dict[str, Any]:
     """Health check endpoint.
-    
+
     Returns:
         Dict[str, Any]: Health check results.
     """
@@ -134,16 +137,15 @@ async def health_check_endpoint() -> Dict[str, Any]:
         health_check.check_database(),
         health_check.check_redis(),
     )
-    
+
     # Get system metrics
     system_metrics = health_check.get_system_metrics()
-    
+
     # Determine overall health
     is_healthy = all(
-        check["status"] == "healthy"
-        for check in [db_health, redis_health]
+        check["status"] == "healthy" for check in [db_health, redis_health]
     )
-    
+
     return {
         "status": "healthy" if is_healthy else "unhealthy",
         "timestamp": datetime.now().isoformat(),
@@ -158,7 +160,7 @@ async def health_check_endpoint() -> Dict[str, Any]:
 @router.get("/metrics")
 async def metrics_endpoint() -> Response:
     """Prometheus metrics endpoint.
-    
+
     Returns:
         Response: Prometheus metrics.
     """
@@ -171,8 +173,8 @@ async def metrics_endpoint() -> Response:
 @router.get("/system")
 async def system_metrics_endpoint() -> Dict[str, Any]:
     """System metrics endpoint.
-    
+
     Returns:
         Dict[str, Any]: System metrics.
     """
-    return health_check.get_system_metrics() 
+    return health_check.get_system_metrics()

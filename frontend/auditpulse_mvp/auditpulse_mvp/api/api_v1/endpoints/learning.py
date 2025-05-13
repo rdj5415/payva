@@ -3,6 +3,7 @@
 This module provides API endpoints for working with the continuous learning
 features, including manual triggering of retraining and viewing feedback statistics.
 """
+
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
@@ -39,7 +40,7 @@ router = APIRouter()
 
 class LearningStats(BaseModel):
     """Learning statistics model."""
-    
+
     total_feedback: int
     rules_based: Dict[str, Any]
     ml_based: Dict[str, Any]
@@ -49,7 +50,7 @@ class LearningStats(BaseModel):
 
 class LearningResult(BaseModel):
     """Result from triggering learning process."""
-    
+
     status: str
     processed_count: int
     rules_updated: Optional[int] = None
@@ -73,13 +74,13 @@ async def get_statistics(
     current_tenant: Tenant = Depends(get_current_tenant),
 ) -> LearningStats:
     """Get statistics about feedback and learning effectiveness.
-    
+
     Args:
         days: Number of days to look back
         db: Database session
         current_user: Current authenticated user
         current_tenant: Current tenant
-        
+
     Returns:
         LearningStats: Statistics about feedback and learning effectiveness
     """
@@ -94,10 +95,10 @@ async def get_statistics(
             details={"days": days},
         ),
     )
-    
+
     # Get learning statistics
     stats = await get_learning_statistics(current_tenant.id, db, days_lookback=days)
-    
+
     return LearningStats(**stats)
 
 
@@ -107,23 +108,27 @@ async def get_statistics(
     summary="Trigger learning process based on feedback",
 )
 async def trigger_learning(
-    days: int = Query(30, ge=1, le=365, description="Number of days of feedback to consider"),
-    min_feedback: int = Query(5, ge=1, description="Minimum feedback count required to make adjustments"),
+    days: int = Query(
+        30, ge=1, le=365, description="Number of days of feedback to consider"
+    ),
+    min_feedback: int = Query(
+        5, ge=1, description="Minimum feedback count required to make adjustments"
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
     current_tenant: Tenant = Depends(get_current_tenant),
 ) -> LearningResult:
     """Trigger learning process based on feedback.
-    
+
     This endpoint processes recent feedback to adjust ML thresholds and rule parameters.
-    
+
     Args:
         days: Number of days of feedback to consider
         min_feedback: Minimum feedback count required to make adjustments
         db: Database session
         current_user: Current authenticated user (must be admin)
         current_tenant: Current tenant
-        
+
     Returns:
         LearningResult: Results of the learning process
     """
@@ -138,7 +143,7 @@ async def trigger_learning(
             details={"days": days, "min_feedback": min_feedback},
         ),
     )
-    
+
     # Trigger learning process
     result = await update_thresholds_from_feedback(
         tenant_id=current_tenant.id,
@@ -146,7 +151,7 @@ async def trigger_learning(
         days_lookback=days,
         min_feedback_count=min_feedback,
     )
-    
+
     if result:
         # Transform result into response model
         response = {
@@ -160,7 +165,7 @@ async def trigger_learning(
             "no_action_reason": result.get("no_action_reason"),
             "timestamp": datetime.utcnow(),
         }
-        
+
         return LearningResult(**response)
     else:
         # Return error if process failed
@@ -184,14 +189,14 @@ async def schedule_learning(
     scheduler: FeedbackLearningScheduler = Depends(get_feedback_learning_scheduler),
 ) -> Dict[str, Any]:
     """Schedule or reschedule the learning process.
-    
+
     Args:
         enable: Enable or disable scheduled learning
         db: Database session
         current_user: Current authenticated user (must be admin)
         current_tenant: Current tenant
         scheduler: Feedback learning scheduler
-        
+
     Returns:
         Dict with status information
     """
@@ -206,12 +211,12 @@ async def schedule_learning(
             details={"enable": enable},
         ),
     )
-    
+
     if enable:
         # Start scheduler if not already running
         if not scheduler._is_running:
             await scheduler.start()
-            
+
         return {
             "status": "scheduled",
             "message": "Learning process scheduled",
@@ -221,9 +226,9 @@ async def schedule_learning(
         # Stop scheduler if running
         if scheduler._is_running:
             await scheduler.stop()
-            
+
         return {
             "status": "unscheduled",
             "message": "Learning process unscheduled",
             "is_running": scheduler._is_running,
-        } 
+        }

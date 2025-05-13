@@ -3,6 +3,7 @@
 This module contains tests for the notification service functionality,
 including email and Slack notifications for anomalies and system events.
 """
+
 import datetime
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -11,7 +12,12 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from auditpulse_mvp.database.models import Anomaly, NotificationConfig, RiskLevel, Tenant
+from auditpulse_mvp.database.models import (
+    Anomaly,
+    NotificationConfig,
+    RiskLevel,
+    Tenant,
+)
 from auditpulse_mvp.notifications.notification_service import NotificationService
 
 
@@ -74,23 +80,28 @@ async def test_send_anomaly_notification_high_risk(
 ):
     """Test sending notification for high-risk anomaly."""
     # Setup
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_notification_config
-    
-    with patch("auditpulse_mvp.notifications.notification_service.NotificationService._send_email") as mock_send_email, \
-         patch("auditpulse_mvp.notifications.notification_service.NotificationService._send_slack") as mock_send_slack:
-        
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_notification_config
+    )
+
+    with patch(
+        "auditpulse_mvp.notifications.notification_service.NotificationService._send_email"
+    ) as mock_send_email, patch(
+        "auditpulse_mvp.notifications.notification_service.NotificationService._send_slack"
+    ) as mock_send_slack:
+
         # Initialize service
         service = NotificationService(mock_db_session)
-        
+
         # Send notification
         await service.send_anomaly_notification(mock_anomaly)
-        
+
         # Verify email was sent
         mock_send_email.assert_called_once()
         call_args = mock_send_email.call_args[1]
         assert call_args["recipients"] == mock_notification_config.email_recipients
         assert "High Risk Anomaly Detected" in call_args["subject"]
-        
+
         # Verify Slack message was sent
         mock_send_slack.assert_called_once()
         call_args = mock_send_slack.call_args[1]
@@ -108,18 +119,23 @@ async def test_send_anomaly_notification_low_risk(
     """Test sending notification for low-risk anomaly (should not send)."""
     # Setup
     mock_notification_config.notify_on_low_risk = False
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_notification_config
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_notification_config
+    )
     mock_anomaly.risk_level = RiskLevel.LOW
-    
-    with patch("auditpulse_mvp.notifications.notification_service.NotificationService._send_email") as mock_send_email, \
-         patch("auditpulse_mvp.notifications.notification_service.NotificationService._send_slack") as mock_send_slack:
-        
+
+    with patch(
+        "auditpulse_mvp.notifications.notification_service.NotificationService._send_email"
+    ) as mock_send_email, patch(
+        "auditpulse_mvp.notifications.notification_service.NotificationService._send_slack"
+    ) as mock_send_slack:
+
         # Initialize service
         service = NotificationService(mock_db_session)
-        
+
         # Send notification
         await service.send_anomaly_notification(mock_anomaly)
-        
+
         # Verify no notifications were sent
         mock_send_email.assert_not_called()
         mock_send_slack.assert_not_called()
@@ -133,14 +149,19 @@ async def test_send_system_notification(
 ):
     """Test sending system notification."""
     # Setup
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_notification_config
-    
-    with patch("auditpulse_mvp.notifications.notification_service.NotificationService._send_email") as mock_send_email, \
-         patch("auditpulse_mvp.notifications.notification_service.NotificationService._send_slack") as mock_send_slack:
-        
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_notification_config
+    )
+
+    with patch(
+        "auditpulse_mvp.notifications.notification_service.NotificationService._send_email"
+    ) as mock_send_email, patch(
+        "auditpulse_mvp.notifications.notification_service.NotificationService._send_slack"
+    ) as mock_send_slack:
+
         # Initialize service
         service = NotificationService(mock_db_session)
-        
+
         # Send notification
         await service.send_system_notification(
             tenant_id=mock_tenant.id,
@@ -148,13 +169,13 @@ async def test_send_system_notification(
             message="Test system error",
             details={"error_code": "TEST_ERROR"},
         )
-        
+
         # Verify email was sent
         mock_send_email.assert_called_once()
         call_args = mock_send_email.call_args[1]
         assert call_args["recipients"] == mock_notification_config.email_recipients
         assert "System Error" in call_args["subject"]
-        
+
         # Verify Slack message was sent
         mock_send_slack.assert_called_once()
         call_args = mock_send_slack.call_args[1]
@@ -170,14 +191,16 @@ async def test_get_notification_config(
 ):
     """Test retrieving notification configuration."""
     # Setup
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_notification_config
-    
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_notification_config
+    )
+
     # Initialize service
     service = NotificationService(mock_db_session)
-    
+
     # Get configuration
     config = await service.get_notification_config(mock_tenant.id)
-    
+
     # Verify configuration
     assert config.tenant_id == mock_notification_config.tenant_id
     assert config.email_enabled == mock_notification_config.email_enabled
@@ -194,16 +217,16 @@ async def test_get_notification_config_not_found(
     """Test retrieving non-existent notification configuration."""
     # Setup
     mock_db_session.query.return_value.filter.return_value.first.return_value = None
-    
+
     # Initialize service
     service = NotificationService(mock_db_session)
-    
+
     # Get configuration
     config = await service.get_notification_config(mock_tenant.id)
-    
+
     # Verify default configuration
     assert config.tenant_id == mock_tenant.id
     assert config.email_enabled is False
     assert config.slack_enabled is False
     assert config.email_recipients == []
-    assert config.slack_webhook_url is None 
+    assert config.slack_webhook_url is None

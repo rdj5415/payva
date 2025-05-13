@@ -3,6 +3,7 @@
 This module contains tests for the feedback API endpoints,
 including feedback submission and statistics retrieval.
 """
+
 import datetime
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -67,12 +68,20 @@ def test_submit_feedback_success(
 ):
     """Test successful feedback submission."""
     # Setup
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_anomaly
-    
-    with patch("auditpulse_mvp.api.api_v1.endpoints.feedback.get_db_session", return_value=mock_db_session), \
-         patch("auditpulse_mvp.api.api_v1.endpoints.feedback.get_current_user", return_value=mock_current_user), \
-         patch("auditpulse_mvp.api.api_v1.endpoints.feedback.FeedbackService") as mock_service:
-        
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_anomaly
+    )
+
+    with patch(
+        "auditpulse_mvp.api.api_v1.endpoints.feedback.get_db_session",
+        return_value=mock_db_session,
+    ), patch(
+        "auditpulse_mvp.api.api_v1.endpoints.feedback.get_current_user",
+        return_value=mock_current_user,
+    ), patch(
+        "auditpulse_mvp.api.api_v1.endpoints.feedback.FeedbackService"
+    ) as mock_service:
+
         # Mock service response
         mock_service.return_value.submit_feedback.return_value = FeedbackResponse(
             success=True,
@@ -81,7 +90,7 @@ def test_submit_feedback_success(
             feedback_type=FeedbackType.TRUE_POSITIVE,
             timestamp=datetime.datetime.now(),
         )
-        
+
         # Submit feedback
         response = client.post(
             "/api/v1/feedback",
@@ -91,7 +100,7 @@ def test_submit_feedback_success(
                 "resolution_notes": "Test feedback",
             },
         )
-        
+
         # Verify response
         assert response.status_code == 200
         data = response.json()
@@ -108,14 +117,22 @@ def test_submit_feedback_not_found(
     """Test feedback submission for non-existent anomaly."""
     # Setup
     mock_db_session.query.return_value.filter.return_value.first.return_value = None
-    
-    with patch("auditpulse_mvp.api.api_v1.endpoints.feedback.get_db_session", return_value=mock_db_session), \
-         patch("auditpulse_mvp.api.api_v1.endpoints.feedback.get_current_user", return_value=mock_current_user), \
-         patch("auditpulse_mvp.api.api_v1.endpoints.feedback.FeedbackService") as mock_service:
-        
+
+    with patch(
+        "auditpulse_mvp.api.api_v1.endpoints.feedback.get_db_session",
+        return_value=mock_db_session,
+    ), patch(
+        "auditpulse_mvp.api.api_v1.endpoints.feedback.get_current_user",
+        return_value=mock_current_user,
+    ), patch(
+        "auditpulse_mvp.api.api_v1.endpoints.feedback.FeedbackService"
+    ) as mock_service:
+
         # Mock service exception
-        mock_service.return_value.submit_feedback.side_effect = Exception("Anomaly not found")
-        
+        mock_service.return_value.submit_feedback.side_effect = Exception(
+            "Anomaly not found"
+        )
+
         # Submit feedback
         response = client.post(
             "/api/v1/feedback",
@@ -125,7 +142,7 @@ def test_submit_feedback_not_found(
                 "resolution_notes": "Test feedback",
             },
         )
-        
+
         # Verify response
         assert response.status_code == 500
 
@@ -151,17 +168,23 @@ def test_get_feedback_stats(
             "f1_score": 1.0,
         },
     }
-    
-    with patch("auditpulse_mvp.api.api_v1.endpoints.feedback.get_db_session", return_value=mock_db_session), \
-         patch("auditpulse_mvp.api.api_v1.endpoints.feedback.get_current_user", return_value=mock_current_user), \
-         patch("auditpulse_mvp.api.api_v1.endpoints.feedback.FeedbackService") as mock_service:
-        
+
+    with patch(
+        "auditpulse_mvp.api.api_v1.endpoints.feedback.get_db_session",
+        return_value=mock_db_session,
+    ), patch(
+        "auditpulse_mvp.api.api_v1.endpoints.feedback.get_current_user",
+        return_value=mock_current_user,
+    ), patch(
+        "auditpulse_mvp.api.api_v1.endpoints.feedback.FeedbackService"
+    ) as mock_service:
+
         # Mock service response
         mock_service.return_value.get_feedback_stats.return_value = stats
-        
+
         # Get statistics
         response = client.get("/api/v1/feedback/stats")
-        
+
         # Verify response
         assert response.status_code == 200
         data = response.json()
@@ -176,14 +199,21 @@ def test_get_anomaly_feedback(
 ):
     """Test getting feedback for a specific anomaly."""
     # Setup
-    mock_db_session.query.return_value.filter.return_value.first.return_value = mock_anomaly
-    
-    with patch("auditpulse_mvp.api.api_v1.endpoints.feedback.get_db_session", return_value=mock_db_session), \
-         patch("auditpulse_mvp.api.api_v1.endpoints.feedback.get_current_user", return_value=mock_current_user):
-        
+    mock_db_session.query.return_value.filter.return_value.first.return_value = (
+        mock_anomaly
+    )
+
+    with patch(
+        "auditpulse_mvp.api.api_v1.endpoints.feedback.get_db_session",
+        return_value=mock_db_session,
+    ), patch(
+        "auditpulse_mvp.api.api_v1.endpoints.feedback.get_current_user",
+        return_value=mock_current_user,
+    ):
+
         # Get feedback
         response = client.get(f"/api/v1/feedback/{mock_anomaly.id}")
-        
+
         # Verify response
         assert response.status_code == 200
         data = response.json()
@@ -202,12 +232,17 @@ def test_get_anomaly_feedback_not_found(
     """Test getting feedback for non-existent anomaly."""
     # Setup
     mock_db_session.query.return_value.filter.return_value.first.return_value = None
-    
-    with patch("auditpulse_mvp.api.api_v1.endpoints.feedback.get_db_session", return_value=mock_db_session), \
-         patch("auditpulse_mvp.api.api_v1.endpoints.feedback.get_current_user", return_value=mock_current_user):
-        
+
+    with patch(
+        "auditpulse_mvp.api.api_v1.endpoints.feedback.get_db_session",
+        return_value=mock_db_session,
+    ), patch(
+        "auditpulse_mvp.api.api_v1.endpoints.feedback.get_current_user",
+        return_value=mock_current_user,
+    ):
+
         # Get feedback
         response = client.get(f"/api/v1/feedback/{uuid.uuid4()}")
-        
+
         # Verify response
-        assert response.status_code == 404 
+        assert response.status_code == 404

@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 
 # Add parent directory to path to be able to import from auditpulse_mvp
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from auditpulse_mvp.notifications.notification_manager import (
     NotificationManager,
@@ -39,7 +39,7 @@ async def send_test_notification(
     channels: list = None,
 ):
     """Send a test notification.
-    
+
     Args:
         template_id: Template ID to use
         email: Recipient email
@@ -48,17 +48,17 @@ async def send_test_notification(
         channels: Channels to send notification through
     """
     logger.info(f"Sending test notification using template: {template_id}")
-    
+
     # Initialize database
     await init_db()
-    
+
     # Initialize task manager
     task_manager = TaskManager.get_instance()
     await task_manager.start()
-    
+
     # Initialize template manager
     template_manager = TemplateManager(settings)
-    
+
     # Check if template exists
     template = await template_manager.get_template(template_id)
     if not template:
@@ -68,16 +68,16 @@ async def send_test_notification(
         for t in templates:
             logger.info(f"  - {t['template_id']}: {t['name']}")
         return
-    
+
     # Create notification manager
     notification_manager = NotificationManager(settings, task_manager)
-    
+
     # Create notification recipient
     recipient = NotificationRecipient(
         email=email,
         channels=channels or ["email"],
     )
-    
+
     # Create notification request
     request = NotificationRequest(
         template_id=template_id,
@@ -86,33 +86,37 @@ async def send_test_notification(
         priority=NotificationPriority(priority),
         channels=channels,
     )
-    
+
     # Generate a random user ID
     user_id = uuid.uuid4()
-    
+
     try:
         # Send notification
         result = await notification_manager.send_notification(
             request=request,
             user_id=user_id,
         )
-        
+
         logger.info(f"Notification sent: {result}")
         logger.info(f"Notification ID: {result.get('notification_id')}")
         logger.info(f"Status: {result.get('status')}")
-        
+
         # Wait a bit for the notification to be processed
         logger.info("Waiting for notification to be processed...")
         await asyncio.sleep(5)
-        
+
         # Get notification status
-        status = await notification_manager.get_notification_status(result.get('notification_id'))
+        status = await notification_manager.get_notification_status(
+            result.get("notification_id")
+        )
         logger.info(f"Notification status: {status.get('status')}")
-        
-        if 'delivery_attempts' in status:
-            for attempt in status['delivery_attempts']:
-                logger.info(f"Delivery attempt via {attempt.get('channel')}: {attempt.get('status')}")
-                if attempt.get('error'):
+
+        if "delivery_attempts" in status:
+            for attempt in status["delivery_attempts"]:
+                logger.info(
+                    f"Delivery attempt via {attempt.get('channel')}: {attempt.get('status')}"
+                )
+                if attempt.get("error"):
                     logger.error(f"Error: {attempt.get('error')}")
     finally:
         # Shutdown task manager
@@ -149,7 +153,7 @@ def main():
         help="Channel to send notification through (can be used multiple times)",
     )
     args = parser.parse_args()
-    
+
     # Prepare template data based on template ID
     template_data = {}
     if args.template == "anomaly_detected":
@@ -172,7 +176,9 @@ def main():
             "recall": "0.89",
             "f1_score": "0.91",
             "roc_auc": "0.94",
-            "start_date": (datetime.now() - datetime.timedelta(days=7)).strftime("%Y-%m-%d"),
+            "start_date": (datetime.now() - datetime.timedelta(days=7)).strftime(
+                "%Y-%m-%d"
+            ),
             "end_date": datetime.now().strftime("%Y-%m-%d"),
             "total_transactions": "1,234",
             "anomalies_detected": "32",
@@ -208,7 +214,9 @@ def main():
     elif args.template == "weekly_report":
         template_data = {
             "user_name": "Test User",
-            "week_start": (datetime.now() - datetime.timedelta(days=7)).strftime("%Y-%m-%d"),
+            "week_start": (datetime.now() - datetime.timedelta(days=7)).strftime(
+                "%Y-%m-%d"
+            ),
             "week_end": datetime.now().strftime("%Y-%m-%d"),
             "accounts": [
                 {"name": "Checking Account", "balance": "$2,345.67"},
@@ -219,8 +227,20 @@ def main():
             "total_withdrawals": "$2,345.67",
             "net_change": "$1,111.11",
             "anomalies": [
-                {"date": (datetime.now() - datetime.timedelta(days=3)).strftime("%Y-%m-%d"), "description": "Unusual payment to XYZ Corp", "amount": "$876.54"},
-                {"date": (datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d"), "description": "Large transfer to Savings", "amount": "$1,500.00"},
+                {
+                    "date": (datetime.now() - datetime.timedelta(days=3)).strftime(
+                        "%Y-%m-%d"
+                    ),
+                    "description": "Unusual payment to XYZ Corp",
+                    "amount": "$876.54",
+                },
+                {
+                    "date": (datetime.now() - datetime.timedelta(days=1)).strftime(
+                        "%Y-%m-%d"
+                    ),
+                    "description": "Large transfer to Savings",
+                    "amount": "$1,500.00",
+                },
             ],
             "top_categories": [
                 {"name": "Groceries", "amount": "$345.67", "percentage": "25"},
@@ -230,18 +250,20 @@ def main():
             ],
             "report_url": "https://example.com/reports/weekly/123",
         }
-    
+
     # Run the notification
-    asyncio.run(send_test_notification(
-        template_id=args.template,
-        email=args.email,
-        priority=args.priority,
-        template_data=template_data,
-        channels=args.channel,
-    ))
-    
+    asyncio.run(
+        send_test_notification(
+            template_id=args.template,
+            email=args.email,
+            priority=args.priority,
+            template_data=template_data,
+            channels=args.channel,
+        )
+    )
+
     logger.info("Done")
 
 
 if __name__ == "__main__":
-    main() 
+    main()
