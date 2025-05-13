@@ -13,7 +13,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 # Define a Type variable for settings classes
-T = TypeVar('T', bound='Settings')
+T = TypeVar("T", bound="Settings")
 
 
 class Settings(BaseSettings):
@@ -194,7 +194,7 @@ if os.environ.get("ENVIRONMENT") == "test":
     db_url_str = "sqlite+aiosqlite:///:memory:"
     # We need to cast to the specific type expected by TestSettings
     db_url = cast(Union[PostgresDsn, AnyUrl], db_url_str)
-    
+
     # Explicitly type as TestSettings
     test_settings = TestSettings(
         DATABASE_URL=db_url,
@@ -202,19 +202,19 @@ if os.environ.get("ENVIRONMENT") == "test":
         AUTH0_DOMAIN="test.auth0.com",
         AUTH0_CLIENT_ID="test-client-id",
         AUTH0_CLIENT_SECRET=SecretStr("test-client-secret"),
-        AUTH0_CALLBACK_URL="http://localhost:8000/auth/callback"
+        AUTH0_CALLBACK_URL="http://localhost:8000/auth/callback",
     )
     # Assign to the settings variable
     settings = test_settings
 else:
     # Normal settings for production/development
     db_url_str = os.environ.get(
-        "DATABASE_URL", 
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/auditpulse"
+        "DATABASE_URL",
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/auditpulse",
     )
     # Cast to the specific type expected by Settings
     db_url = cast(Union[PostgresDsn, AnyUrl], db_url_str)
-    
+
     # Explicitly type as Settings
     prod_settings = Settings(
         DATABASE_URL=db_url,
@@ -222,7 +222,7 @@ else:
         AUTH0_DOMAIN=os.environ.get("AUTH0_DOMAIN", ""),
         AUTH0_CLIENT_ID=os.environ.get("AUTH0_CLIENT_ID", ""),
         AUTH0_CLIENT_SECRET=SecretStr(os.environ.get("AUTH0_CLIENT_SECRET", "")),
-        AUTH0_CALLBACK_URL=os.environ.get("AUTH0_CALLBACK_URL", "")
+        AUTH0_CALLBACK_URL=os.environ.get("AUTH0_CALLBACK_URL", ""),
     )
     # Assign to the settings variable
     settings = prod_settings
