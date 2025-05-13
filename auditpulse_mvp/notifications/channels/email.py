@@ -1,10 +1,12 @@
-"""Email notification channel for sending email alerts."""
+"""
+Email notification channel.
+"""
 
 import logging
 import smtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Dict, Any, Optional
+from email.mime.text import MIMEText
+from typing import Dict, Any, Optional, Union
 
 from auditpulse_mvp.utils.settings import Settings
 
@@ -12,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class EmailNotifier:
-    """Email notifier for sending email notifications."""
+    """Email notification channel using SMTP."""
 
     def __init__(self, settings: Settings):
         """Initialize the email notifier.
@@ -21,12 +23,13 @@ class EmailNotifier:
             settings: Application settings
         """
         self.settings = settings
-        self.smtp_host = settings.SMTP_HOST
-        self.smtp_port = settings.SMTP_PORT
-        self.smtp_user = settings.SMTP_USER
-        self.smtp_password = settings.SMTP_PASSWORD
-        self.sender_email = settings.SMTP_SENDER
-        self.use_ssl = settings.SMTP_USE_SSL
+        # Use properly defined settings or fallback to empty strings to avoid None access
+        self.smtp_host = getattr(settings, "SMTP_HOST", "smtp.gmail.com")
+        self.smtp_port = getattr(settings, "SMTP_PORT", 587)
+        self.smtp_user = getattr(settings, "SMTP_USERNAME", "")
+        self.smtp_password = getattr(settings, "SMTP_PASSWORD", "")
+        self.sender_email = getattr(settings, "SMTP_FROM_EMAIL", "no-reply@example.com")
+        self.use_ssl = getattr(settings, "SMTP_USE_TLS", True)
 
     async def send(
         self,
@@ -55,14 +58,15 @@ class EmailNotifier:
 
             # Add plain text and HTML parts
             msg.attach(MIMEText(body, "plain"))
-
             if html_body:
                 msg.attach(MIMEText(html_body, "html"))
 
             # Connect to SMTP server
+            server: Union[smtplib.SMTP, smtplib.SMTP_SSL]
             if self.use_ssl:
                 server = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port)
             else:
+                # Using regular SMTP with STARTTLS
                 server = smtplib.SMTP(self.smtp_host, self.smtp_port)
                 server.starttls()
 

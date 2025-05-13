@@ -50,7 +50,7 @@ class SlackNotifier:
                 }
 
             # Prepare message payload
-            payload = {
+            payload: Dict[str, Any] = {
                 "channel": channel,
                 "text": text,
             }
@@ -128,7 +128,7 @@ class SlackNotifier:
                 }
 
             # Prepare message payload
-            payload = {"text": text}
+            payload: Dict[str, Any] = {"text": text}
 
             if blocks:
                 payload["blocks"] = blocks

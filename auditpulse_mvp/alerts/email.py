@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Any
 
 import httpx
 from pydantic import EmailStr
+import re
 
 from auditpulse_mvp.alerts.base import (
     NotificationProvider,
@@ -67,7 +68,10 @@ class EmailNotificationProvider(NotificationProvider):
         try:
             # Verify recipient email format
             try:
-                EmailStr.validate(recipient)
+                # Simple email validation using regex
+                email_pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+                if not re.match(email_pattern, recipient):
+                    raise ValueError(f"Invalid email format: {recipient}")
             except ValueError:
                 logger.error(f"Invalid email address: {recipient}")
                 return NotificationStatus.FAILED

@@ -5,7 +5,8 @@ Configuration for the notification service.
 import os
 from typing import Optional
 
-from pydantic import BaseSettings, EmailStr, HttpUrl
+from pydantic import EmailStr, HttpUrl, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class NotificationSettings(BaseSettings):
@@ -27,11 +28,10 @@ class NotificationSettings(BaseSettings):
     NOTIFICATION_RETRY_ATTEMPTS: int = 3
     NOTIFICATION_RETRY_DELAY: int = 5  # seconds
 
-    class Config:
-        """Pydantic config."""
-
-        env_prefix = "AUDITPULSE_"
-        case_sensitive = True
+    model_config = SettingsConfigDict(
+        env_prefix="AUDITPULSE_",
+        case_sensitive=True,
+    )
 
 
 # Create settings instance

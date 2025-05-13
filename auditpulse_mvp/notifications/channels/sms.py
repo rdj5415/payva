@@ -68,17 +68,18 @@ class SMSNotifier:
                 "to": to_number,
             }
 
-            if media_urls:
-                params["media_url"] = media_urls
+            if media_urls and len(media_urls) > 0:
+                # If there's just one URL, use it directly
+                params["media_url"] = media_urls[0]
 
             # Send the SMS
-            message = self.client.messages.create(**params)
+            twilio_message = self.client.messages.create(**params)
 
-            logger.info(f"SMS sent successfully to {to_number}, SID: {message.sid}")
+            logger.info(f"SMS sent successfully to {to_number}, SID: {twilio_message.sid}")
             return {
                 "status": "delivered",  # Twilio doesn't confirm delivery immediately
                 "to_number": to_number,
-                "message_id": message.sid,
+                "message_id": twilio_message.sid,
             }
 
         except TwilioRestException as e:
