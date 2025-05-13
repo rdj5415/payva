@@ -2,18 +2,20 @@
 
 This module provides OpenAPI documentation and API specifications.
 """
+
 from typing import Dict, Any
 from fastapi.openapi.utils import get_openapi
 from fastapi import FastAPI
 
 from auditpulse_mvp.main import app
 
+
 def custom_openapi(app: FastAPI) -> Dict[str, Any]:
     """Generate custom OpenAPI schema with detailed documentation.
-    
+
     Args:
         app: FastAPI application
-        
+
     Returns:
         dict: OpenAPI schema
     """
@@ -72,7 +74,7 @@ def custom_openapi(app: FastAPI) -> Dict[str, Any]:
             "type": "http",
             "scheme": "bearer",
             "bearerFormat": "JWT",
-            "description": "JWT token for API authentication"
+            "description": "JWT token for API authentication",
         },
         "oauth2": {
             "type": "oauth2",
@@ -83,94 +85,108 @@ def custom_openapi(app: FastAPI) -> Dict[str, Any]:
                     "scopes": {
                         "read": "Read access",
                         "write": "Write access",
-                        "admin": "Admin access"
-                    }
+                        "admin": "Admin access",
+                    },
                 }
-            }
-        }
+            },
+        },
     }
 
     # Add global security requirement
     openapi_schema["security"] = [{"bearerAuth": []}]
 
     # Add detailed response schemas
-    openapi_schema["components"]["schemas"].update({
-        "Error": {
-            "type": "object",
-            "properties": {
-                "code": {"type": "string", "description": "Error code"},
-                "message": {"type": "string", "description": "Error message"},
-                "details": {"type": "object", "description": "Additional error details"}
-            }
-        },
-        "Pagination": {
-            "type": "object",
-            "properties": {
-                "page": {"type": "integer", "description": "Current page number"},
-                "size": {"type": "integer", "description": "Page size"},
-                "total": {"type": "integer", "description": "Total number of items"},
-                "pages": {"type": "integer", "description": "Total number of pages"}
-            }
+    openapi_schema["components"]["schemas"].update(
+        {
+            "Error": {
+                "type": "object",
+                "properties": {
+                    "code": {"type": "string", "description": "Error code"},
+                    "message": {"type": "string", "description": "Error message"},
+                    "details": {
+                        "type": "object",
+                        "description": "Additional error details",
+                    },
+                },
+            },
+            "Pagination": {
+                "type": "object",
+                "properties": {
+                    "page": {"type": "integer", "description": "Current page number"},
+                    "size": {"type": "integer", "description": "Page size"},
+                    "total": {
+                        "type": "integer",
+                        "description": "Total number of items",
+                    },
+                    "pages": {
+                        "type": "integer",
+                        "description": "Total number of pages",
+                    },
+                },
+            },
         }
-    })
+    )
 
     # Add detailed endpoint documentation
     for path in openapi_schema["paths"].values():
         for operation in path.values():
             if "responses" in operation:
-                operation["responses"].update({
-                    "400": {
-                        "description": "Bad Request",
-                        "content": {
-                            "application/json": {
-                                "schema": {"$ref": "#/components/schemas/Error"}
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "content": {
-                            "application/json": {
-                                "schema": {"$ref": "#/components/schemas/Error"}
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/json": {
-                                "schema": {"$ref": "#/components/schemas/Error"}
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "content": {
-                            "application/json": {
-                                "schema": {"$ref": "#/components/schemas/Error"}
-                            }
-                        }
-                    },
-                    "429": {
-                        "description": "Too Many Requests",
-                        "content": {
-                            "application/json": {
-                                "schema": {"$ref": "#/components/schemas/Error"}
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {"$ref": "#/components/schemas/Error"}
-                            }
-                        }
+                operation["responses"].update(
+                    {
+                        "400": {
+                            "description": "Bad Request",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            },
+                        },
+                        "401": {
+                            "description": "Unauthorized",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            },
+                        },
+                        "403": {
+                            "description": "Forbidden",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            },
+                        },
+                        "404": {
+                            "description": "Not Found",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            },
+                        },
+                        "429": {
+                            "description": "Too Many Requests",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            },
+                        },
+                        "500": {
+                            "description": "Internal Server Error",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            },
+                        },
                     }
-                })
+                )
 
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
+
 # Set custom OpenAPI schema
-app.openapi = custom_openapi 
+app.openapi = custom_openapi

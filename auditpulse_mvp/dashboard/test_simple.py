@@ -10,7 +10,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 # Add parent directory to path so we can import our module
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 # Import dashboard components
 from auditpulse_mvp.dashboard.dashboard import (
@@ -57,17 +57,17 @@ def test_export_to_csv():
     """Test the export_to_csv function."""
     mock_anomalies = create_mock_anomalies()
     csv_data = export_to_csv(mock_anomalies)
-    
+
     # Basic validation
     assert isinstance(csv_data, str)
     assert "ID,Date,Description,Risk Score,Risk Level,Transaction Amount" in csv_data
-    
+
     # Check content
     assert "high" in csv_data
     assert "medium" in csv_data
     assert "5000.0" in csv_data
     assert "1200.0" in csv_data
-    
+
     print("✅ CSV export test passed")
 
 
@@ -75,12 +75,12 @@ def test_export_to_pdf():
     """Test the export_to_pdf function."""
     mock_anomalies = create_mock_anomalies()
     pdf_bytes = export_to_pdf(mock_anomalies)
-    
+
     # Basic validation
     assert isinstance(pdf_bytes, bytes)
     assert len(pdf_bytes) > 0
-    assert pdf_bytes.startswith(b'%PDF-')  # PDF signature
-    
+    assert pdf_bytes.startswith(b"%PDF-")  # PDF signature
+
     print("✅ PDF export test passed")
 
 
@@ -88,26 +88,26 @@ def test_risk_chart():
     """Test risk chart generation."""
     mock_anomalies = create_mock_anomalies()
     chart = generate_risk_chart(mock_anomalies)
-    
+
     # Validate chart
     assert chart is not None
-    
+
     # Get risk levels from data
     risk_levels = {}
     for anomaly in mock_anomalies:
         risk_levels[anomaly.risk_level] = risk_levels.get(anomaly.risk_level, 0) + 1
-    
+
     # Check chart data
     chart_data = chart.data[0]
-    chart_x = list(chart_data['x'])
-    chart_y = list(chart_data['y'])
-    
+    chart_x = list(chart_data["x"])
+    chart_y = list(chart_data["y"])
+
     # Check risk levels
     for risk_level, count in risk_levels.items():
         assert risk_level in chart_x
         index = chart_x.index(risk_level)
         assert chart_y[index] == count
-    
+
     print("✅ Risk chart test passed")
 
 
@@ -121,4 +121,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

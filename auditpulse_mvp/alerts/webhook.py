@@ -2,11 +2,16 @@
 
 This module provides a notification provider for sending alerts via webhooks (e.g., Zapier, custom endpoints).
 """
+
 import logging
 from typing import Optional
 import httpx
 
-from auditpulse_mvp.alerts.base import NotificationProvider, NotificationPayload, NotificationStatus
+from auditpulse_mvp.alerts.base import (
+    NotificationProvider,
+    NotificationPayload,
+    NotificationStatus,
+)
 from auditpulse_mvp.utils.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -21,13 +26,17 @@ class WebhookNotificationProvider(NotificationProvider):
             default_webhook_url: Default webhook URL to use if not provided per notification.
         """
         super().__init__()
-        self.default_webhook_url = default_webhook_url or getattr(settings, "WEBHOOK_URL", None)
+        self.default_webhook_url = default_webhook_url or getattr(
+            settings, "WEBHOOK_URL", None
+        )
 
     async def is_configured(self) -> bool:
         """Check if the provider is properly configured."""
         return self.default_webhook_url is not None
 
-    async def send(self, recipient: str, payload: NotificationPayload) -> NotificationStatus:
+    async def send(
+        self, recipient: str, payload: NotificationPayload
+    ) -> NotificationStatus:
         """Send a webhook notification.
         Args:
             recipient: Webhook URL (overrides default if provided)
@@ -37,7 +46,9 @@ class WebhookNotificationProvider(NotificationProvider):
         """
         webhook_url = recipient or self.default_webhook_url
         if not webhook_url:
-            logger.warning("Webhook URL not configured. Cannot send webhook notification.")
+            logger.warning(
+                "Webhook URL not configured. Cannot send webhook notification."
+            )
             return NotificationStatus.FAILED
         try:
             data = {
@@ -49,7 +60,9 @@ class WebhookNotificationProvider(NotificationProvider):
                 "anomaly_id": str(payload.anomaly_id),
                 "explanation": payload.explanation,
                 "dashboard_url": payload.dashboard_url,
-                "priority": payload.priority.value if hasattr(payload, "priority") else None,
+                "priority": (
+                    payload.priority.value if hasattr(payload, "priority") else None
+                ),
             }
             async with httpx.AsyncClient() as client:
                 response = await client.post(webhook_url, json=data, timeout=10.0)
@@ -61,4 +74,4 @@ class WebhookNotificationProvider(NotificationProvider):
                 return NotificationStatus.FAILED
         except Exception as e:
             logger.exception(f"Error sending webhook notification: {str(e)}")
-            return NotificationStatus.FAILED 
+            return NotificationStatus.FAILED

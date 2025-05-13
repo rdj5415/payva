@@ -1,4 +1,5 @@
 """API endpoints for feedback learning and continuous model improvement."""
+
 import logging
 import uuid
 from typing import Dict, Any, Optional
@@ -37,7 +38,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/trigger", response_model=LearningTriggerResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/trigger",
+    response_model=LearningTriggerResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def trigger_learning_now(
     db: AsyncSession = Depends(get_db_session),
     current_tenant: Tenant = Depends(get_current_tenant),
@@ -45,19 +50,21 @@ async def trigger_learning_now(
 ) -> Dict[str, Any]:
     """
     Trigger immediate feedback learning for the current tenant.
-    
+
     This endpoint initiates a process that analyzes recent user feedback
     to adjust anomaly detection parameters.
     """
     try:
-        logger.info(f"Triggering immediate feedback learning for tenant {current_tenant.id}")
-        
+        logger.info(
+            f"Triggering immediate feedback learning for tenant {current_tenant.id}"
+        )
+
         # Get the feedback learner
         learner = await get_feedback_learner(db_session=db)
-        
+
         # Process recent feedback
         result = await learner.process_recent_feedback(current_tenant.id, days=days)
-        
+
         # Log the result
         if result["status"] == "success":
             logger.info(
@@ -68,22 +75,28 @@ async def trigger_learning_now(
             logger.info(
                 f"Feedback learning skipped for tenant {current_tenant.id}: {result.get('reason', 'unknown reason')}"
             )
-        
+
         # Store the result in tenant configuration
         await update_tenant_configuration(
-            db, 
-            current_tenant.id, 
-            "last_learning_run", 
+            db,
+            current_tenant.id,
+            "last_learning_run",
             {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "status": result["status"],
-                **{k: v for k, v in result.items() if k != "status" and not isinstance(v, dict)},
-            }
+                **{
+                    k: v
+                    for k, v in result.items()
+                    if k != "status" and not isinstance(v, dict)
+                },
+            },
         )
-        
+
         return result
     except Exception as e:
-        logger.error(f"Failed to trigger feedback learning for tenant {current_tenant.id}: {e}")
+        logger.error(
+            f"Failed to trigger feedback learning for tenant {current_tenant.id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to trigger feedback learning: {str(e)}",
@@ -97,14 +110,16 @@ async def get_learning_status(
 ) -> Dict[str, Any]:
     """
     Get the current feedback learning status and schedule for the tenant.
-    
+
     This endpoint returns information about the last learning run and the
     scheduled learning configuration.
     """
     try:
         # Get tenant configuration
-        config = await get_tenant_configuration(db, current_tenant.id, "learning_config")
-        
+        config = await get_tenant_configuration(
+            db, current_tenant.id, "learning_config"
+        )
+
         if not config:
             # Return default configuration if none exists
             return {
@@ -117,10 +132,12 @@ async def get_learning_status(
                     "next_run": None,
                 },
             }
-        
+
         return config
     except Exception as e:
-        logger.error(f"Failed to get learning status for tenant {current_tenant.id}: {e}")
+        logger.error(
+            f"Failed to get learning status for tenant {current_tenant.id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get learning status: {str(e)}",
@@ -129,25 +146,29 @@ async def get_learning_status(
 
 @router.get("/statistics", response_model=FeedbackStatistics)
 async def get_feedback_statistics(
-    days_lookback: int = Query(90, description="Number of days to look back for statistics"),
+    days_lookback: int = Query(
+        90, description="Number of days to look back for statistics"
+    ),
     db: AsyncSession = Depends(get_db_session),
     current_tenant: Tenant = Depends(get_current_tenant),
 ) -> Dict[str, Any]:
     """
     Get statistics about feedback and learning effectiveness.
-    
+
     This endpoint provides metrics on feedback patterns, false positive rates,
     and learning adjustments over time.
     """
     try:
         statistics = await get_learning_statistics(
-            current_tenant.id, 
-            db, 
+            current_tenant.id,
+            db,
             days_lookback=days_lookback,
         )
         return statistics
     except Exception as e:
-        logger.error(f"Failed to get feedback statistics for tenant {current_tenant.id}: {e}")
+        logger.error(
+            f"Failed to get feedback statistics for tenant {current_tenant.id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get feedback statistics: {str(e)}",
@@ -162,7 +183,7 @@ async def update_learning_schedule(
 ) -> Dict[str, Any]:
     """
     Update the feedback learning schedule for the tenant.
-    
+
     This endpoint allows configuring when automatic feedback learning runs.
     """
     try:
@@ -173,7 +194,7 @@ async def update_learning_schedule(
             "learning_schedule",
             update_data.dict(),
         )
-        
+
         # Return success response
         return {
             "status": "success",
@@ -181,7 +202,9 @@ async def update_learning_schedule(
             "update": update_data.dict(),
         }
     except Exception as e:
-        logger.error(f"Failed to update learning schedule for tenant {current_tenant.id}: {e}")
+        logger.error(
+            f"Failed to update learning schedule for tenant {current_tenant.id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update learning schedule: {str(e)}",
@@ -195,30 +218,32 @@ async def update_sensitivity_from_feedback(
 ) -> Dict[str, Any]:
     """
     Update sensitivity configuration based on feedback patterns.
-    
+
     This endpoint analyzes recent feedback and adjusts sensitivity settings
     accordingly, without requiring a full learning process.
     """
     try:
         # Get the feedback learner
         learner = await get_feedback_learner(db_session=db)
-        
+
         # Gather feedback data
         feedback_data = await learner.gather_feedback_data(current_tenant.id, days=30)
-        
+
         if not feedback_data["anomalies"]:
             return {
                 "status": "skipped",
                 "reason": "No recent feedback found",
                 "update_applied": False,
             }
-        
+
         # Analyze feedback
         feedback_analysis = learner.analyze_feedback(feedback_data)
-        
+
         # Update sensitivity configuration
-        updated_config = await learner.update_sensitivity_config(current_tenant.id, feedback_analysis)
-        
+        updated_config = await learner.update_sensitivity_config(
+            current_tenant.id, feedback_analysis
+        )
+
         return {
             "status": "success",
             "message": "Sensitivity configuration updated successfully",
@@ -229,8 +254,10 @@ async def update_sensitivity_from_feedback(
             "true_positive_rate": feedback_analysis["true_positive_rate"],
         }
     except Exception as e:
-        logger.error(f"Failed to update sensitivity from feedback for tenant {current_tenant.id}: {e}")
+        logger.error(
+            f"Failed to update sensitivity from feedback for tenant {current_tenant.id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update sensitivity from feedback: {str(e)}",
-        ) 
+        )

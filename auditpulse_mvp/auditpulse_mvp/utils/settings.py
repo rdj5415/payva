@@ -2,6 +2,7 @@
 
 This module defines and validates all application settings using Pydantic.
 """
+
 from typing import Literal, Optional, Any, Dict, List, Union
 
 from pydantic import Field, SecretStr, field_validator, AnyHttpUrl
@@ -25,10 +26,10 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL", "DATABASE_TEST_URL", mode="before")
     def validate_database_url(cls, v: Any) -> str:
         """Validate that the database URL is a string.
-        
+
         Args:
             v: The value to validate.
-            
+
         Returns:
             str: The validated database URL.
         """
@@ -81,7 +82,9 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     NOTIFICATION_CHECK_INTERVAL_MINUTES: int = 15
     DEFAULT_FROM_EMAIL: str = "alerts@auditpulse.ai"
-    DEFAULT_FROM_PHONE: str = "+15555555555"  # Replace with actual default in production
+    DEFAULT_FROM_PHONE: str = (
+        "+15555555555"  # Replace with actual default in production
+    )
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -138,7 +141,7 @@ class Settings(BaseSettings):
             # Special case for SQLite - use a different file for testing
             if self.DATABASE_URL.startswith("sqlite"):
                 return self.DATABASE_URL.replace("sqlite:", "sqlite:")
-            
+
             # For other databases, ensure we're using a test database
             if "test" not in self.DATABASE_URL.lower():
                 if "?" in self.DATABASE_URL:
@@ -146,42 +149,42 @@ class Settings(BaseSettings):
                 else:
                     return f"{self.DATABASE_URL}?test=true"
         return self.DATABASE_URL
-    
+
     @property
     def enable_ml_engine(self) -> bool:
         """Get the ML engine enabled status."""
         return self.ENABLE_ML_ENGINE
-    
+
     @property
     def enable_ml_scheduler(self) -> bool:
         """Get the ML scheduler enabled status."""
         return self.ENABLE_ML_SCHEDULER
-    
+
     @property
     def enable_risk_engine(self) -> bool:
         """Get the risk engine enabled status."""
         return self.ENABLE_RISK_ENGINE
-    
+
     @property
     def enable_gpt_explanations(self) -> bool:
         """Get the GPT explanations enabled status."""
         return self.ENABLE_GPT_EXPLANATIONS
-        
+
     @property
     def enable_notifications(self) -> bool:
         """Get the notifications enabled status."""
         return self.ENABLE_NOTIFICATIONS
-    
+
     @property
     def ml_retraining_hour(self) -> int:
         """Get the ML retraining hour."""
         return self.ML_RETRAINING_HOUR
-    
+
     @property
     def ml_retraining_minute(self) -> int:
         """Get the ML retraining minute."""
         return self.ML_RETRAINING_MINUTE
-    
+
     @property
     def notification_check_interval_minutes(self) -> int:
         """Get the notification check interval in minutes."""
@@ -191,17 +194,17 @@ class Settings(BaseSettings):
     def enable_feedback_learning(self) -> bool:
         """Get feedback learning enabled status."""
         return self.ENABLE_FEEDBACK_LEARNING
-    
+
     @property
     def feedback_learning_hour(self) -> int:
         """Get feedback learning hour."""
         return self.FEEDBACK_LEARNING_HOUR
-    
+
     @property
     def feedback_learning_minute(self) -> int:
         """Get feedback learning minute."""
         return self.FEEDBACK_LEARNING_MINUTE
-    
+
     @property
     def false_positive_threshold(self) -> int:
         """Get false positive threshold."""
@@ -218,7 +221,8 @@ def get_settings() -> Settings:
     Returns:
         Settings: Application settings.
     """
-    return settings 
+    return settings
+
 
 # Check for custom config file
 config_file = os.getenv("APP_CONFIG_FILE")
@@ -228,4 +232,4 @@ if config_file:
         settings = Settings(_env_file=config_file)
 
 # Define project base path
-BASE_DIR = Path(__file__).resolve().parent.parent 
+BASE_DIR = Path(__file__).resolve().parent.parent

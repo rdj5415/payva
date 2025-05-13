@@ -162,4 +162,4 @@ class SlackProvider(NotificationProvider):
             logger.info("Slack message sent successfully")
         except Exception as e:
             logger.error(f"Error sending Slack message: {e}")
-            raise 
+            raise

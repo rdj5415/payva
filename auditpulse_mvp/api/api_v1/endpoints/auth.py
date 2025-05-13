@@ -3,6 +3,7 @@
 This module provides API endpoints for user authentication,
 including registration, login, and OAuth2 integration.
 """
+
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Any, List
@@ -14,12 +15,21 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auditpulse_mvp.api.deps import (
-    get_current_user, require_admin, get_current_tenant, log_audit_action, AuditAction
+    get_current_user,
+    require_admin,
+    get_current_tenant,
+    log_audit_action,
+    AuditAction,
 )
 from auditpulse_mvp.database.models import User, Tenant
 from auditpulse_mvp.database.session import get_db
 from auditpulse_mvp.utils.settings import settings
-from auditpulse_mvp.auth.auth_service import AuthService, Token, UserCreate, UserResponse
+from auditpulse_mvp.auth.auth_service import (
+    AuthService,
+    Token,
+    UserCreate,
+    UserResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +38,7 @@ router = APIRouter()
 
 class LoginRequest(BaseModel):
     """Login request model."""
+
     email: EmailStr
     password: str
     tenant_id: UUID
@@ -35,12 +46,14 @@ class LoginRequest(BaseModel):
 
 class Auth0CallbackRequest(BaseModel):
     """Auth0 callback request model."""
+
     code: str
     state: str
 
 
 class TokenRefreshRequest(BaseModel):
     """Token refresh request model."""
+
     refresh_token: str
 
 
@@ -50,20 +63,20 @@ async def register(
     db: AsyncSession = Depends(get_db),
 ) -> UserResponse:
     """Register a new user.
-    
+
     Args:
         user_data: User creation data.
         db: Database session.
-        
+
     Returns:
         Created user response.
-        
+
     Raises:
         HTTPException: If registration fails.
     """
     # Initialize service
     service = AuthService(db)
-    
+
     # Create user
     return service.create_user(user_data)
 
@@ -74,27 +87,27 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ) -> Token:
     """Login a user.
-    
+
     Args:
         login_data: Login request data.
         db: Database session.
-        
+
     Returns:
         Access token.
-        
+
     Raises:
         HTTPException: If login fails.
     """
     # Initialize service
     service = AuthService(db)
-    
+
     # Authenticate user
     user, token = service.authenticate_user(
         email=login_data.email,
         password=login_data.password,
         tenant_id=login_data.tenant_id,
     )
-    
+
     # Log successful login
     await log_audit_action(
         db=db,
@@ -104,7 +117,7 @@ async def login(
         resource_type="user",
         resource_id=user.id,
     )
-    
+
     return token
 
 
@@ -114,33 +127,33 @@ async def auth0_callback(
     db: AsyncSession = Depends(get_db),
 ) -> Token:
     """Handle Auth0 OAuth2 callback.
-    
+
     Args:
         callback_data: Auth0 callback data.
         db: Database session.
-        
+
     Returns:
         Access token.
-        
+
     Raises:
         HTTPException: If callback handling fails.
     """
     try:
         # Initialize service
         service = AuthService(db)
-        
+
         # Exchange code for token
         token_data = await service.exchange_auth0_code(
             code=callback_data.code,
             state=callback_data.state,
         )
-        
+
         # Get or create user
         user = await service.get_or_create_auth0_user(token_data)
-        
+
         # Create session token
         token = service.create_session_token(user)
-        
+
         # Log successful login
         await log_audit_action(
             db=db,
@@ -151,9 +164,9 @@ async def auth0_callback(
             resource_id=user.id,
             metadata={"provider": "auth0"},
         )
-        
+
         return token
-        
+
     except Exception as e:
         logger.error(f"Auth0 callback failed: {str(e)}")
         raise HTTPException(
@@ -168,26 +181,26 @@ async def refresh_token(
     db: AsyncSession = Depends(get_db),
 ) -> Token:
     """Refresh an access token.
-    
+
     Args:
         refresh_data: Token refresh data.
         db: Database session.
-        
+
     Returns:
         New access token.
-        
+
     Raises:
         HTTPException: If token refresh fails.
     """
     try:
         # Initialize service
         service = AuthService(db)
-        
+
         # Refresh token
         token = await service.refresh_token(refresh_data.refresh_token)
-        
+
         return token
-        
+
     except Exception as e:
         logger.error(f"Token refresh failed: {str(e)}")
         raise HTTPException(
@@ -199,7 +212,7 @@ async def refresh_token(
 @router.get("/settings", response_model=Dict[str, Any])
 async def get_auth_settings() -> Dict[str, Any]:
     """Get authentication settings for the frontend.
-    
+
     Returns:
         Dict[str, Any]: Authentication configuration
     """
@@ -221,10 +234,10 @@ async def get_current_user_info(
     current_user: User = Depends(get_current_user),
 ) -> UserResponse:
     """Get current user information.
-    
+
     Args:
         current_user: Current user.
-        
+
     Returns:
         User response.
     """
@@ -247,31 +260,31 @@ async def change_password(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Change user password.
-    
+
     Args:
         current_password: Current password.
         new_password: New password.
         current_user: Current user.
         db: Database session.
-        
+
     Returns:
         Success message.
-        
+
     Raises:
         HTTPException: If password change fails.
     """
     # Initialize service
     service = AuthService(db)
-    
+
     # Verify current password
     if not service._verify_password(current_password, current_user.hashed_password):
         raise HTTPException(
             status_code=400,
             detail="Invalid current password",
         )
-    
+
     # Update password
     current_user.hashed_password = service._hash_password(new_password)
     await db.commit()
-    
-    return {"message": "Password changed successfully"} 
+
+    return {"message": "Password changed successfully"}

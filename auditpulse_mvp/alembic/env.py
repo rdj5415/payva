@@ -2,6 +2,7 @@
 
 This module defines how Alembic interacts with our application to generate migrations.
 """
+
 import asyncio
 from logging.config import fileConfig
 
@@ -93,4 +94,4 @@ def run_migrations_online() -> None:
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    run_migrations_online() 
+    run_migrations_online()

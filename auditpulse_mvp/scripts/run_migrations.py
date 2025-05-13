@@ -35,4 +35,4 @@ def run_migrations() -> None:
 
 
 if __name__ == "__main__":
-    run_migrations() 
+    run_migrations()

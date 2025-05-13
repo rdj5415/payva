@@ -188,12 +188,16 @@ class NotificationService:
             "slack_webhook": config.slack_webhook,
             "subject": f"Daily Anomaly Summary - {tenant.name}",
             "body": self._generate_daily_summary_email_body(summary_data, tenant),
-            "slack_message": self._generate_daily_summary_slack_message(summary_data, tenant),
+            "slack_message": self._generate_daily_summary_slack_message(
+                summary_data, tenant
+            ),
         }
 
         await self._notification_queue.put(notification)
 
-    def _should_notify_anomaly(self, anomaly: Anomaly, config: NotificationConfig) -> bool:
+    def _should_notify_anomaly(
+        self, anomaly: Anomaly, config: NotificationConfig
+    ) -> bool:
         """Check if an anomaly should trigger a notification.
 
         Args:
@@ -303,7 +307,9 @@ class NotificationService:
         Date: {anomaly.transaction.transaction_date}
         """
 
-    def _generate_resolution_slack_message(self, anomaly: Anomaly, tenant: Tenant) -> str:
+    def _generate_resolution_slack_message(
+        self, anomaly: Anomaly, tenant: Tenant
+    ) -> str:
         """Generate Slack message for anomaly resolution notification.
 
         Args:
@@ -329,7 +335,9 @@ class NotificationService:
         _Resolution Notes: {anomaly.resolution_notes}_
         """
 
-    def _generate_daily_summary_email_body(self, summary_data: Dict, tenant: Tenant) -> str:
+    def _generate_daily_summary_email_body(
+        self, summary_data: Dict, tenant: Tenant
+    ) -> str:
         """Generate email body for daily summary notification.
 
         Args:
@@ -356,7 +364,9 @@ class NotificationService:
         False Negatives: {summary_data['false_negatives']}
         """
 
-    def _generate_daily_summary_slack_message(self, summary_data: Dict, tenant: Tenant) -> str:
+    def _generate_daily_summary_slack_message(
+        self, summary_data: Dict, tenant: Tenant
+    ) -> str:
         """Generate Slack message for daily summary notification.
 
         Args:
@@ -384,4 +394,4 @@ class NotificationService:
         Accuracy: {summary_data['accuracy']:.1%}
         False Positives: {summary_data['false_positives']}
         False Negatives: {summary_data['false_negatives']}
-        """ 
+        """

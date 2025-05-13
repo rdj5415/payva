@@ -2,6 +2,7 @@
 
 This module handles QuickBooks OAuth authentication, data fetching, and normalization.
 """
+
 import datetime
 import json
 import logging
@@ -37,7 +38,11 @@ class QuickBooksClient:
         self,
         tenant_id: uuid.UUID,
         client_id: str = settings.QUICKBOOKS_CLIENT_ID or "",
-        client_secret: str = settings.QUICKBOOKS_CLIENT_SECRET.get_secret_value() if settings.QUICKBOOKS_CLIENT_SECRET else "",
+        client_secret: str = (
+            settings.QUICKBOOKS_CLIENT_SECRET.get_secret_value()
+            if settings.QUICKBOOKS_CLIENT_SECRET
+            else ""
+        ),
         redirect_uri: str = settings.QUICKBOOKS_REDIRECT_URI or "",
         environment: str = settings.QUICKBOOKS_ENVIRONMENT,
     ):
@@ -113,7 +118,9 @@ class QuickBooksClient:
         reraise=True,
     )
     async def fetch_transactions(
-        self, start_date: Optional[datetime.date] = None, end_date: Optional[datetime.date] = None
+        self,
+        start_date: Optional[datetime.date] = None,
+        end_date: Optional[datetime.date] = None,
     ) -> List[Dict[str, Any]]:
         """Fetch transactions from QuickBooks.
 
@@ -257,25 +264,32 @@ class QuickBooksService:
             )
 
         qb_settings = cast(Dict[str, Any], tenant.quickbooks_settings)
-        
+
         # Create and return a client with the tenant's settings
         client = QuickBooksClient(
             tenant_id=tenant_id,
             client_id=settings.QUICKBOOKS_CLIENT_ID or "",
-            client_secret=settings.QUICKBOOKS_CLIENT_SECRET.get_secret_value() if settings.QUICKBOOKS_CLIENT_SECRET else "",
+            client_secret=(
+                settings.QUICKBOOKS_CLIENT_SECRET.get_secret_value()
+                if settings.QUICKBOOKS_CLIENT_SECRET
+                else ""
+            ),
             redirect_uri=settings.QUICKBOOKS_REDIRECT_URI or "",
             environment=settings.QUICKBOOKS_ENVIRONMENT,
         )
-        
+
         # Set the tenant-specific tokens and realm ID
         client.access_token = qb_settings.get("access_token")
         client.refresh_token = qb_settings.get("refresh_token")
         client.realm_id = qb_settings.get("realm_id")
-        
+
         return client
 
     async def sync_transactions(
-        self, tenant_id: uuid.UUID, start_date: Optional[datetime.date] = None, end_date: Optional[datetime.date] = None
+        self,
+        tenant_id: uuid.UUID,
+        start_date: Optional[datetime.date] = None,
+        end_date: Optional[datetime.date] = None,
     ) -> Tuple[int, int, int]:
         """Sync transactions from QuickBooks.
 
@@ -291,16 +305,16 @@ class QuickBooksService:
             HTTPException: If there's an error syncing transactions.
         """
         client = await self.get_client_for_tenant(tenant_id)
-        
+
         try:
             # Fetch transactions from QuickBooks
             raw_transactions = await client.fetch_transactions(start_date, end_date)
-            
+
             # Process and normalize transactions
             created_count, updated_count = await self._process_transactions(
                 tenant_id, raw_transactions
             )
-            
+
             return len(raw_transactions), created_count, updated_count
         except Exception as exc:
             logger.error(f"Error syncing QuickBooks transactions: {exc}")
@@ -323,11 +337,11 @@ class QuickBooksService:
         """
         created_count = 0
         updated_count = 0
-        
+
         for raw_txn in raw_transactions:
             # Convert QuickBooks format to our normalized format
             normalized_txn = self._normalize_transaction(raw_txn)
-            
+
             # Check if the transaction already exists
             existing_txn_result = await self.db_session.execute(
                 select(Transaction).where(
@@ -337,11 +351,15 @@ class QuickBooksService:
                 )
             )
             existing_txn = existing_txn_result.scalar_one_or_none()
-            
+
             if existing_txn:
                 # Update existing transaction
                 for key, value in normalized_txn.items():
-                    if key != "transaction_id" and key != "source" and key != "tenant_id":
+                    if (
+                        key != "transaction_id"
+                        and key != "source"
+                        and key != "tenant_id"
+                    ):
                         setattr(existing_txn, key, value)
                 updated_count += 1
             else:
@@ -353,10 +371,10 @@ class QuickBooksService:
                 )
                 self.db_session.add(new_txn)
                 created_count += 1
-        
+
         # Commit all changes at once
         await self.db_session.commit()
-        
+
         return created_count, updated_count
 
     def _normalize_transaction(self, raw_txn: Dict[str, Any]) -> Dict[str, Any]:
@@ -370,32 +388,32 @@ class QuickBooksService:
         """
         # Extract basic transaction information
         txn_id = raw_txn.get("Id") or ""
-        
+
         # Determine if it's a purchase or bill
         txn_type = "Purchase"
         if raw_txn.get("PaymentType") == "Check":
             txn_type = "Check"
         elif raw_txn.get("DocNumber", "").startswith("BILL"):
             txn_type = "Bill"
-        
+
         # Extract account information
         account_id = ""
         account_ref = raw_txn.get("AccountRef")
         if account_ref:
             account_id = account_ref.get("value", "")
-        
+
         # Extract vendor information
         merchant_name = ""
         entity_ref = raw_txn.get("EntityRef")
         if entity_ref:
             merchant_name = entity_ref.get("name", "")
-        
+
         # Extract transaction amount
         amount = 0.0
         total_amount = raw_txn.get("TotalAmt")
         if total_amount is not None:
             amount = float(total_amount)
-        
+
         # Extract transaction date
         transaction_date = datetime.datetime.now()
         txn_date = raw_txn.get("TxnDate")
@@ -404,11 +422,11 @@ class QuickBooksService:
                 transaction_date = datetime.datetime.strptime(txn_date, "%Y-%m-%d")
             except ValueError:
                 pass
-        
+
         # Extract description and category
         description = raw_txn.get("PrivateNote") or ""
         category = ""
-        
+
         # Combine all line items for a richer description if needed
         line_items = raw_txn.get("Line", [])
         if line_items and not description:
@@ -419,7 +437,7 @@ class QuickBooksService:
                     descriptions.append(detail)
             if descriptions:
                 description = " | ".join(descriptions)
-        
+
         # Determine category from line items if available
         if line_items:
             for item in line_items:
@@ -429,7 +447,7 @@ class QuickBooksService:
                     if account_ref:
                         category = account_ref.get("name", "")
                         break
-        
+
         # Build the normalized transaction
         return {
             "transaction_id": f"{txn_id}",
@@ -464,11 +482,11 @@ async def update_tenant_quickbooks_settings(
             select(Tenant).where(Tenant.id == tenant_id)
         )
         tenant = tenant_result.scalar_one_or_none()
-        
+
         if not tenant:
             logger.error(f"Tenant {tenant_id} not found")
             return False
-        
+
         # Update the settings
         if tenant.quickbooks_settings:
             # Update existing settings
@@ -476,7 +494,7 @@ async def update_tenant_quickbooks_settings(
         else:
             # Create new settings
             tenant.quickbooks_settings = settings_data
-        
+
         # Commit the changes
         await db_session.commit()
         return True
@@ -503,11 +521,11 @@ async def handle_quickbooks_webhook(
         # Extract event information
         event_notification = payload.get("eventNotifications", [{}])[0]
         realm_id = event_notification.get("realmId")
-        
+
         if not realm_id:
             logger.error("Missing realm ID in QuickBooks webhook")
             return {"status": "error", "message": "Missing realm ID"}
-        
+
         # Find the tenant with this realm ID
         tenant_result = await db_session.execute(
             select(Tenant).where(
@@ -515,22 +533,25 @@ async def handle_quickbooks_webhook(
             )
         )
         tenant = tenant_result.scalar_one_or_none()
-        
+
         if not tenant:
             logger.error(f"No tenant found for QuickBooks realm ID: {realm_id}")
-            return {"status": "error", "message": f"No tenant found for realm ID: {realm_id}"}
-        
+            return {
+                "status": "error",
+                "message": f"No tenant found for realm ID: {realm_id}",
+            }
+
         # Process the event
         events = event_notification.get("dataChangeEvent", {}).get("entities", [])
-        
+
         if not events:
             return {"status": "success", "message": "No events to process"}
-        
+
         # Schedule background jobs to sync affected data
         for event in events:
             entity_name = event.get("name")
             operation = event.get("operation")
-            
+
             # If it's a transaction-related entity, trigger a sync
             if entity_name in ["Purchase", "Bill", "Check", "JournalEntry"]:
                 logger.info(f"QuickBooks {operation} event for {entity_name}")
@@ -541,11 +562,11 @@ async def handle_quickbooks_webhook(
                     start_date=datetime.date.today() - datetime.timedelta(days=30),
                     end_date=datetime.date.today(),
                 )
-        
+
         return {
             "status": "success",
             "message": f"Processed {len(events)} QuickBooks events",
         }
     except Exception as exc:
         logger.error(f"Error handling QuickBooks webhook: {exc}")
-        return {"status": "error", "message": str(exc)} 
+        return {"status": "error", "message": str(exc)}

@@ -3,6 +3,7 @@
 This module provides the main dashboard interface for AuditPulse,
 including authentication, anomaly monitoring, and settings management.
 """
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -38,11 +39,11 @@ def init_session_state():
 
 def login(email: str, password: str) -> bool:
     """Authenticate user and get access token.
-    
+
     Args:
         email: User email
         password: User password
-        
+
     Returns:
         bool: True if authentication successful
     """
@@ -54,7 +55,7 @@ def login(email: str, password: str) -> bool:
                 "password": password,
             },
         )
-        
+
         if response.status_code == 200:
             data = response.json()
             st.session_state.token = data["access_token"]
@@ -65,7 +66,7 @@ def login(email: str, password: str) -> bool:
         else:
             st.error("Invalid email or password")
             return False
-            
+
     except Exception as e:
         st.error(f"Login failed: {str(e)}")
         return False
@@ -73,12 +74,12 @@ def login(email: str, password: str) -> bool:
 
 def register(email: str, password: str, full_name: str) -> bool:
     """Register new user.
-    
+
     Args:
         email: User email
         password: User password
         full_name: User's full name
-        
+
     Returns:
         bool: True if registration successful
     """
@@ -91,14 +92,14 @@ def register(email: str, password: str, full_name: str) -> bool:
                 "full_name": full_name,
             },
         )
-        
+
         if response.status_code == 200:
             st.success("Registration successful! Please log in.")
             return True
         else:
             st.error("Registration failed")
             return False
-            
+
     except Exception as e:
         st.error(f"Registration failed: {str(e)}")
         return False
@@ -112,14 +113,14 @@ def get_anomalies(
     resolution_status: str,
 ) -> List[Dict[str, Any]]:
     """Get anomalies from API with filtering.
-    
+
     Args:
         start_date: Start date for filtering
         end_date: End date for filtering
         risk_levels: List of risk levels to include
         anomaly_types: List of anomaly types to include
         resolution_status: Resolution status filter
-        
+
     Returns:
         List of anomaly dictionaries
     """
@@ -131,22 +132,22 @@ def get_anomalies(
             "risk_levels": ",".join(risk_levels),
             "anomaly_types": ",".join(anomaly_types),
         }
-        
+
         if resolution_status != "All":
             params["is_resolved"] = resolution_status == "Resolved"
-        
+
         response = requests.get(
             f"{settings.API_URL}/api/v1/anomalies",
             headers={"Authorization": f"Bearer {st.session_state.token}"},
             params=params,
         )
-        
+
         if response.status_code == 200:
             return response.json()
         else:
             st.error("Failed to load anomalies")
             return []
-            
+
     except Exception as e:
         st.error(f"Error loading anomalies: {str(e)}")
         return []
@@ -155,25 +156,25 @@ def get_anomalies(
 def render_auth_page():
     """Render authentication page."""
     st.title("AuditPulse")
-    
+
     tab1, tab2 = st.tabs(["Login", "Register"])
-    
+
     with tab1:
         with st.form("login_form"):
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
-            
+
             if st.form_submit_button("Login"):
                 if login(email, password):
                     st.rerun()
-    
+
     with tab2:
         with st.form("register_form"):
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
             confirm_password = st.text_input("Confirm Password", type="password")
             full_name = st.text_input("Full Name")
-            
+
             if st.form_submit_button("Register"):
                 if password != confirm_password:
                     st.error("Passwords do not match")
@@ -186,29 +187,35 @@ def render_dashboard():
     """Render main dashboard."""
     # Initialize session state
     init_session_state()
-    
+
     # Check authentication
     if not st.session_state.authenticated:
         render_auth_page()
         return
-    
+
     # Render sidebar
     render_sidebar()
-    
+
     # Get sidebar filters
-    date_range = st.session_state.get("date_range", (
-        datetime.now() - timedelta(days=7),
-        datetime.now(),
-    ))
-    risk_levels = st.session_state.get("risk_levels", [
-        RiskLevel.HIGH.value,
-        RiskLevel.MEDIUM.value,
-    ])
-    anomaly_types = st.session_state.get("anomaly_types", [
-        type.value for type in AnomalyType
-    ])
+    date_range = st.session_state.get(
+        "date_range",
+        (
+            datetime.now() - timedelta(days=7),
+            datetime.now(),
+        ),
+    )
+    risk_levels = st.session_state.get(
+        "risk_levels",
+        [
+            RiskLevel.HIGH.value,
+            RiskLevel.MEDIUM.value,
+        ],
+    )
+    anomaly_types = st.session_state.get(
+        "anomaly_types", [type.value for type in AnomalyType]
+    )
     resolution_status = st.session_state.get("resolution_status", "All")
-    
+
     # Get anomalies
     anomalies = get_anomalies(
         date_range[0],
@@ -217,36 +224,36 @@ def render_dashboard():
         anomaly_types,
         resolution_status,
     )
-    
+
     # Render header
     render_header()
-    
+
     # Render main content based on selected page
     page = st.session_state.get("page", "Dashboard")
-    
+
     if page == "Dashboard":
         # Show risk metrics
         render_risk_metrics()
-        
+
         # Show recent anomalies
         st.subheader("Recent Anomalies")
         render_anomaly_list(anomalies[:10])
-        
+
     elif page == "Anomalies":
         # Show all anomalies with filtering
         st.subheader("All Anomalies")
         render_anomaly_list(anomalies)
-        
+
     elif page == "Settings":
         # Show settings tabs
         tab1, tab2 = st.tabs(["Risk Settings", "Notification Settings"])
-        
+
         with tab1:
             render_risk_settings()
-            
+
         with tab2:
             render_notification_settings()
-            
+
     elif page == "Help":
         render_help()
 
@@ -258,9 +265,9 @@ def main():
         page_icon="🔍",
         layout="wide",
     )
-    
+
     render_dashboard()
 
 
 if __name__ == "__main__":
-    main() 
+    main()

@@ -1,1 +1,1 @@
-"""Tests for the notification system.""" 
+"""Tests for the notification system."""

@@ -78,7 +78,6 @@ The AuditPulse Team
             "dashboard_url": "URL to the anomaly details in the dashboard",
         },
     },
-    
     # Model performance notification
     {
         "template_id": "model_performance_report",
@@ -178,7 +177,6 @@ The AuditPulse Team
             "report_url": "URL to the full performance report",
         },
     },
-    
     # System alert notification
     {
         "template_id": "system_alert",
@@ -266,7 +264,6 @@ AuditPulse System Monitoring
             "alert_id": "Unique identifier for the alert",
         },
     },
-    
     # Account security notification
     {
         "template_id": "account_security",
@@ -357,7 +354,6 @@ AuditPulse Team
             "attempt_count": "Number of login attempts",
         },
     },
-    
     # Weekly report notification
     {
         "template_id": "weekly_report",
@@ -498,14 +494,15 @@ The AuditPulse Team
     },
 ]
 
+
 async def create_default_templates(template_manager: TemplateManager):
     """Create default notification templates in the database.
-    
+
     Args:
         template_manager: Template manager instance
     """
     logger.info("Creating default notification templates")
-    
+
     for template_data in DEFAULT_TEMPLATES:
         try:
             await template_manager.create_template(
@@ -519,6 +516,8 @@ async def create_default_templates(template_manager: TemplateManager):
             )
             logger.info(f"Created template: {template_data['template_id']}")
         except Exception as e:
-            logger.warning(f"Failed to create template {template_data['template_id']}: {e}")
-            
-    logger.info("Default templates creation completed") 
+            logger.warning(
+                f"Failed to create template {template_data['template_id']}: {e}"
+            )
+
+    logger.info("Default templates creation completed")

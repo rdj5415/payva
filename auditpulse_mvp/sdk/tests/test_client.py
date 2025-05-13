@@ -2,6 +2,7 @@
 
 This module contains tests for the SDK client functionality.
 """
+
 import pytest
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -29,8 +30,7 @@ from auditpulse_mvp.sdk import (
 def client():
     """Create a test client."""
     return AuditPulseClient(
-        base_url="https://api.auditpulse.ai",
-        api_key="test_api_key"
+        base_url="https://api.auditpulse.ai", api_key="test_api_key"
     )
 
 
@@ -41,7 +41,7 @@ def mock_session():
     response = AsyncMock()
     response.json.return_value = {
         "access_token": "test_token",
-        "refresh_token": "test_refresh_token"
+        "refresh_token": "test_refresh_token",
     }
     response.ok = True
     session.request.return_value.__aenter__.return_value = response
@@ -100,8 +100,7 @@ async def test_get_transactions(client, mock_session):
     with patch("aiohttp.ClientSession", return_value=mock_session):
         async with client:
             result = await client.get_transactions(
-                tenant_id=str(uuid4()),
-                start_date=datetime.now() - timedelta(days=30)
+                tenant_id=str(uuid4()), start_date=datetime.now() - timedelta(days=30)
             )
             assert isinstance(result, PaginatedResponse)
             assert len(result.items) == 1
@@ -135,10 +134,7 @@ async def test_get_anomalies(client, mock_session):
 
     with patch("aiohttp.ClientSession", return_value=mock_session):
         async with client:
-            result = await client.get_anomalies(
-                tenant_id=str(uuid4()),
-                status="open"
-            )
+            result = await client.get_anomalies(tenant_id=str(uuid4()), status="open")
             assert isinstance(result, PaginatedResponse)
             assert len(result.items) == 1
             assert isinstance(result.items[0], Anomaly)
@@ -165,9 +161,7 @@ async def test_update_anomaly(client, mock_session):
     with patch("aiohttp.ClientSession", return_value=mock_session):
         async with client:
             result = await client.update_anomaly(
-                anomaly_id=str(uuid4()),
-                status="resolved",
-                resolution="False positive"
+                anomaly_id=str(uuid4()), status="resolved", resolution="False positive"
             )
             assert isinstance(result, Anomaly)
             assert result.status == AnomalyStatus.RESOLVED
@@ -191,8 +185,8 @@ async def test_submit_feedback(client, mock_session):
                 feedback={
                     "type": "false_positive",
                     "comment": "Test feedback",
-                    "rating": 5
-                }
+                    "rating": 5,
+                },
             )
             assert isinstance(result, Feedback)
             assert result.type == FeedbackType.FALSE_POSITIVE
@@ -207,7 +201,7 @@ async def test_error_handling(client, mock_session):
     mock_session.request.return_value.__aenter__.return_value.json.return_value = {
         "code": "not_found",
         "message": "Resource not found",
-        "details": {"resource": "transaction"}
+        "details": {"resource": "transaction"},
     }
 
     with patch("aiohttp.ClientSession", return_value=mock_session):
@@ -216,4 +210,4 @@ async def test_error_handling(client, mock_session):
                 await client.get_transactions(tenant_id="invalid_id")
             assert exc_info.value.code == "not_found"
             assert exc_info.value.message == "Resource not found"
-            assert exc_info.value.details == {"resource": "transaction"} 
+            assert exc_info.value.details == {"resource": "transaction"}

@@ -2,6 +2,7 @@
 
 This module contains tests for the Streamlit dashboard components.
 """
+
 import pytest
 from datetime import datetime, timedelta
 import uuid
@@ -61,7 +62,10 @@ def mock_gpt_engine():
 
 def test_render_anomaly_details(mock_anomaly, mock_gpt_engine):
     """Test rendering anomaly details."""
-    with patch("auditpulse_mvp.dashboard.components.get_gpt_engine", return_value=mock_gpt_engine):
+    with patch(
+        "auditpulse_mvp.dashboard.components.get_gpt_engine",
+        return_value=mock_gpt_engine,
+    ):
         render_anomaly_details(mock_anomaly)
         mock_gpt_engine.get_anomaly_explanation.assert_called_once_with(mock_anomaly)
 
@@ -95,16 +99,22 @@ async def test_get_tenant_data(mock_transaction, mock_anomaly):
     """Test getting tenant data."""
     # Mock database session
     mock_session = AsyncMock()
-    mock_session.query.return_value.filter.return_value.all.return_value = [mock_transaction]
-    
+    mock_session.query.return_value.filter.return_value.all.return_value = [
+        mock_transaction
+    ]
+
     # Mock GPT engine
     mock_gpt_engine = MagicMock()
     mock_gpt_engine.get_anomaly_explanation.return_value = "Test explanation"
-    
-    with patch("auditpulse_mvp.dashboard.app.get_db", return_value=mock_session), \
-         patch("auditpulse_mvp.dashboard.app.get_gpt_engine", return_value=mock_gpt_engine):
+
+    with (
+        patch("auditpulse_mvp.dashboard.app.get_db", return_value=mock_session),
+        patch(
+            "auditpulse_mvp.dashboard.app.get_gpt_engine", return_value=mock_gpt_engine
+        ),
+    ):
         from auditpulse_mvp.dashboard.app import get_tenant_data
-        
+
         data = await get_tenant_data(str(uuid.uuid4()))
         assert "transactions" in data
-        assert "anomalies" in data 
+        assert "anomalies" in data

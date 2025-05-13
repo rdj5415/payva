@@ -12,6 +12,7 @@ from auditpulse_mvp.middleware.tenant import TenantMiddleware
 from auditpulse_mvp.middleware.logging import LoggingMiddleware
 from auditpulse_mvp.config import settings
 
+
 def setup_middlewares(app: FastAPI) -> None:
     """Configure middlewares for the FastAPI application."""
     # Add CORS middleware
@@ -28,9 +29,13 @@ def setup_middlewares(app: FastAPI) -> None:
         TenantMiddleware,
         header_name=settings.TENANT_HEADER_NAME,
         exempt_paths=[
-            "/docs", "/redoc", "/openapi.json", 
-            "/api/v1/auth/callback", "/api/v1/auth/settings",
-            "/metrics", "/health"
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+            "/api/v1/auth/callback",
+            "/api/v1/auth/settings",
+            "/metrics",
+            "/health",
         ],
     )
     # Add security headers middleware
@@ -40,5 +45,10 @@ def setup_middlewares(app: FastAPI) -> None:
     # Add rate limiting middleware
     limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, lambda request, exc: JSONResponse(status_code=429, content={"detail": "Rate limit exceeded"}))
-    app.middleware("http")(limiter.middleware) 
+    app.add_exception_handler(
+        RateLimitExceeded,
+        lambda request, exc: JSONResponse(
+            status_code=429, content={"detail": "Rate limit exceeded"}
+        ),
+    )
+    app.middleware("http")(limiter.middleware)

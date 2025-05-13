@@ -5,6 +5,7 @@ This module implements the rules-based anomaly detection for transactions:
 2. Unapproved vendors
 3. Statistical outliers (3σ over a 90-day window)
 """
+
 import datetime
 import logging
 import statistics
@@ -38,16 +39,16 @@ class Rule:
     description: str
     enabled: bool = True
     weight: float = 1.0
-    
-    async def evaluate(self, 
-                       transaction: Transaction, 
-                       context: Dict) -> Tuple[bool, float, Optional[str]]:
+
+    async def evaluate(
+        self, transaction: Transaction, context: Dict
+    ) -> Tuple[bool, float, Optional[str]]:
         """Evaluate the rule for a given transaction.
-        
+
         Args:
             transaction: The transaction to evaluate.
             context: Additional context for rule evaluation.
-            
+
         Returns:
             A tuple of (triggered, score, reason):
             - triggered: True if the rule was triggered, False otherwise.
@@ -63,10 +64,10 @@ class LargeAmountRule(Rule):
     """Rule for detecting large transaction amounts."""
 
     threshold: float = 10000.0
-    
-    async def evaluate(self, 
-                       transaction: Transaction, 
-                       context: Dict) -> Tuple[bool, float, Optional[str]]:
+
+    async def evaluate(
+        self, transaction: Transaction, context: Dict
+    ) -> Tuple[bool, float, Optional[str]]:
         """Evaluate if a transaction has an unusually large amount."""
         if transaction.amount >= self.threshold:
             # The score increases with the amount
@@ -81,14 +82,14 @@ class UnapprovedVendorRule(Rule):
     """Rule for detecting transactions with unapproved vendors."""
 
     approved_vendors: Set[str] = field(default_factory=set)
-    
-    async def evaluate(self, 
-                       transaction: Transaction, 
-                       context: Dict) -> Tuple[bool, float, Optional[str]]:
+
+    async def evaluate(
+        self, transaction: Transaction, context: Dict
+    ) -> Tuple[bool, float, Optional[str]]:
         """Evaluate if a transaction's vendor is not in the approved list."""
         if not transaction.merchant_name:
             return False, 0.0, None
-            
+
         # Check if the vendor is in the approved list
         merchant_name = transaction.merchant_name.lower()
         if self.approved_vendors and merchant_name not in self.approved_vendors:
@@ -104,34 +105,36 @@ class StatisticalOutlierRule(Rule):
     std_dev_threshold: float = 3.0
     window_days: int = 90
     min_transactions: int = 5
-    
-    async def evaluate(self, 
-                       transaction: Transaction, 
-                       context: Dict) -> Tuple[bool, float, Optional[str]]:
+
+    async def evaluate(
+        self, transaction: Transaction, context: Dict
+    ) -> Tuple[bool, float, Optional[str]]:
         """Evaluate if a transaction is a statistical outlier based on historical data."""
         # Get historical transactions from context
         historical_txns = context.get("historical_transactions", [])
-        
+
         if len(historical_txns) < self.min_transactions:
             # Not enough historical data to make a statistical judgment
             return False, 0.0, None
-            
+
         # Calculate mean and standard deviation of historical amounts
         amounts = [txn.amount for txn in historical_txns]
         try:
             mean = statistics.mean(amounts)
             stdev = statistics.stdev(amounts)
         except statistics.StatisticsError:
-            logger.warning("Unable to calculate statistics for transaction %s", transaction.id)
+            logger.warning(
+                "Unable to calculate statistics for transaction %s", transaction.id
+            )
             return False, 0.0, None
-            
+
         if stdev == 0:
             # Avoid division by zero
             return False, 0.0, None
-            
+
         # Calculate z-score
         z_score = (transaction.amount - mean) / stdev
-        
+
         # Check if transaction exceeds the threshold
         if z_score > self.std_dev_threshold:
             # Normalize score between 0 and 1, capped at 1.0
@@ -149,14 +152,14 @@ class RulesEngine:
 
     def __init__(self, db_session: AsyncSession):
         """Initialize the rules engine.
-        
+
         Args:
             db_session: The database session.
         """
         self.db_session = db_session
         self.rules: List[Rule] = []
         self._initialize_default_rules()
-        
+
     def _initialize_default_rules(self):
         """Initialize the default rules."""
         self.rules = [
@@ -176,7 +179,7 @@ class RulesEngine:
 
     def update_rule_config(self, rule_configs: List[Dict]):
         """Update rule configurations.
-        
+
         Args:
             rule_configs: List of rule configuration dictionaries.
         """
@@ -184,14 +187,14 @@ class RulesEngine:
             rule_name = config.get("name")
             if not rule_name:
                 continue
-                
+
             # Find and update the matching rule
             for rule in self.rules:
                 if rule.name == rule_name:
                     # Update rule attributes
                     rule.enabled = config.get("enabled", rule.enabled)
                     rule.weight = config.get("weight", rule.weight)
-                    
+
                     # Rule-specific attributes
                     if isinstance(rule, LargeAmountRule):
                         rule.threshold = config.get("threshold", rule.threshold)
@@ -199,27 +202,31 @@ class RulesEngine:
                         if "approved_vendors" in config:
                             rule.approved_vendors = set(config["approved_vendors"])
                     elif isinstance(rule, StatisticalOutlierRule):
-                        rule.std_dev_threshold = config.get("std_dev_threshold", rule.std_dev_threshold)
+                        rule.std_dev_threshold = config.get(
+                            "std_dev_threshold", rule.std_dev_threshold
+                        )
                         rule.window_days = config.get("window_days", rule.window_days)
-                        rule.min_transactions = config.get("min_transactions", rule.min_transactions)
+                        rule.min_transactions = config.get(
+                            "min_transactions", rule.min_transactions
+                        )
                     break
-    
+
     async def get_historical_transactions(
         self, tenant_id: uuid.UUID, transaction: Transaction, days: int = 90
     ) -> List[Transaction]:
         """Get historical transactions for the same account over a time window.
-        
+
         Args:
             tenant_id: The tenant ID.
             transaction: The transaction to get history for.
             days: The number of days to look back.
-            
+
         Returns:
             A list of historical transactions.
         """
         # Calculate the start date for the window
         start_date = transaction.transaction_date - datetime.timedelta(days=days)
-        
+
         # Query for historical transactions in the same account
         stmt = (
             select(Transaction)
@@ -235,19 +242,19 @@ class RulesEngine:
             )
             .order_by(Transaction.transaction_date.desc())
         )
-        
+
         result = await self.db_session.execute(stmt)
         return list(result.scalars().all())
-    
+
     async def prepare_context(
         self, tenant_id: uuid.UUID, transaction: Transaction
     ) -> Dict:
         """Prepare the context for rule evaluation.
-        
+
         Args:
             tenant_id: The tenant ID.
             transaction: The transaction to evaluate.
-            
+
         Returns:
             A dictionary containing the evaluation context.
         """
@@ -255,56 +262,58 @@ class RulesEngine:
         historical_txns = await self.get_historical_transactions(
             tenant_id, transaction, days=90
         )
-        
+
         # Prepare context
         context = {
             "tenant_id": tenant_id,
             "historical_transactions": historical_txns,
             # Additional context could be added here
         }
-        
+
         return context
-    
+
     async def evaluate_transaction(
         self, tenant_id: uuid.UUID, transaction: Transaction
     ) -> List[Dict]:
         """Evaluate all rules against a transaction.
-        
+
         Args:
             tenant_id: The tenant ID.
             transaction: The transaction to evaluate.
-            
+
         Returns:
             A list of dictionaries containing the evaluation results for each triggered rule.
         """
         context = await self.prepare_context(tenant_id, transaction)
         results = []
-        
+
         for rule in self.rules:
             if not rule.enabled:
                 continue
-                
+
             try:
                 triggered, score, reason = await rule.evaluate(transaction, context)
                 if triggered:
-                    results.append({
-                        "rule_name": rule.name,
-                        "rule_type": self._get_rule_type(rule),
-                        "score": score * rule.weight,
-                        "description": reason,
-                        "weight": rule.weight,
-                    })
+                    results.append(
+                        {
+                            "rule_name": rule.name,
+                            "rule_type": self._get_rule_type(rule),
+                            "score": score * rule.weight,
+                            "description": reason,
+                            "weight": rule.weight,
+                        }
+                    )
             except Exception as e:
                 logger.error(f"Error evaluating rule {rule.name}: {e}")
-        
+
         return results
-    
+
     def _get_rule_type(self, rule: Rule) -> RuleType:
         """Get the rule type for a rule instance.
-        
+
         Args:
             rule: The rule instance.
-            
+
         Returns:
             The rule type.
         """
@@ -316,40 +325,40 @@ class RulesEngine:
             return RuleType.STATISTICAL_OUTLIER
         else:
             return RuleType.STATISTICAL_OUTLIER  # Default
-    
+
     async def score(self, tenant_id: uuid.UUID, transaction: Transaction) -> float:
         """Calculate an overall risk score for a transaction.
-        
+
         Args:
             tenant_id: The tenant ID.
             transaction: The transaction to score.
-            
+
         Returns:
             A risk score between 0 and 1, where higher values indicate higher risk.
         """
         results = await self.evaluate_transaction(tenant_id, transaction)
-        
+
         if not results:
             return 0.0
-            
+
         # Calculate weighted average score
         total_weight = sum(result["weight"] for result in results)
         weighted_score = sum(result["score"] for result in results)
-        
+
         if total_weight == 0:
             return 0.0
-            
+
         # Normalize to 0-1 range
         return min(1.0, weighted_score / total_weight)
-    
+
     async def flags(self, tenant_id: uuid.UUID, transaction: Transaction) -> List[Dict]:
         """Get a list of flags for a transaction.
-        
+
         Args:
             tenant_id: The tenant ID.
             transaction: The transaction to check.
-            
+
         Returns:
             A list of dictionaries containing information about each flag.
         """
-        return await self.evaluate_transaction(tenant_id, transaction) 
+        return await self.evaluate_transaction(tenant_id, transaction)

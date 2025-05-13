@@ -2,6 +2,7 @@
 
 This module provides FastAPI dependency functions for authentication and authorization.
 """
+
 import logging
 from typing import Optional
 from uuid import UUID
@@ -34,6 +35,7 @@ oauth2_scheme = OAuth2AuthorizationCodeBearer(
 
 class TokenData(BaseModel):
     """Model for decoded token data."""
+
     sub: str  # Subject (user ID)
     scope: Optional[str] = None
     tenant_id: Optional[str] = None
@@ -43,6 +45,7 @@ class TokenData(BaseModel):
 
 class AuditAction(BaseModel):
     """Model for audit log entries."""
+
     action: str
     user_id: UUID
     tenant_id: UUID
@@ -52,18 +55,17 @@ class AuditAction(BaseModel):
 
 
 async def get_token_data(
-    security_scopes: SecurityScopes, 
-    token: str = Depends(oauth2_scheme)
+    security_scopes: SecurityScopes, token: str = Depends(oauth2_scheme)
 ) -> TokenData:
     """Decode and validate JWT token.
-    
+
     Args:
         security_scopes: Security scopes required for the endpoint
         token: JWT token from the Authorization header
-        
+
     Returns:
         TokenData: Decoded token data
-        
+
     Raises:
         HTTPException: If token is invalid or does not have required scopes
     """
@@ -71,37 +73,37 @@ async def get_token_data(
         authenticate_value = f'Bearer scope="{" ".join(security_scopes.scopes)}"'
     else:
         authenticate_value = "Bearer"
-        
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": authenticate_value},
     )
-    
+
     try:
         # Decode JWT token
         payload = jwt.decode(
-            token, 
-            settings.AUTH0_CLIENT_SECRET.get_secret_value(), 
+            token,
+            settings.AUTH0_CLIENT_SECRET.get_secret_value(),
             algorithms=[settings.ALGORITHM],
             audience=settings.AUTH0_API_AUDIENCE,
             issuer=settings.AUTH0_DOMAIN,
         )
-        
+
         # Extract user ID (subject)
         sub: str = payload.get("sub")
         if not sub:
             raise credentials_exception
-            
+
         # Extract scopes
         scope = payload.get("scope", "")
-        
+
         # Extract tenant ID (custom claim)
         tenant_id = payload.get("https://auditpulse.ai/tenant_id")
-        
+
         # Extract permissions
         permissions = payload.get("permissions", [])
-        
+
         # Create token data
         token_data = TokenData(
             sub=sub,
@@ -110,7 +112,7 @@ async def get_token_data(
             permissions=permissions,
             exp=payload.get("exp"),
         )
-        
+
         # Check if token has required scopes
         if security_scopes.scopes:
             token_scopes = scope.split() if scope else []
@@ -121,9 +123,9 @@ async def get_token_data(
                         detail=f"Not enough permissions. Required scope: {scope}",
                         headers={"WWW-Authenticate": authenticate_value},
                     )
-        
+
         return token_data
-        
+
     except (JWTError, ValidationError) as e:
         logger.error(f"Token validation error: {str(e)}")
         raise credentials_exception
@@ -134,20 +136,20 @@ async def get_current_user(
     token_data: TokenData = Depends(get_token_data),
 ) -> User:
     """Get the current authenticated user.
-    
+
     Args:
         db: Database session
         token_data: Decoded token data
-        
+
     Returns:
         User: Current authenticated user
-        
+
     Raises:
         HTTPException: If user not found or inactive
     """
     # Get user from database
     auth0_id = token_data.sub
-    
+
     # Find user by Auth0 ID (sub)
     stmt = select(User).where(
         User.auth0_id == auth0_id,
@@ -155,20 +157,20 @@ async def get_current_user(
     )
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found or inactive",
         )
-    
+
     # Check if tenant ID matches
     if token_data.tenant_id and str(user.tenant_id) != token_data.tenant_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tenant mismatch",
         )
-    
+
     return user
 
 
@@ -177,14 +179,14 @@ async def get_current_tenant(
     current_user: User = Depends(get_current_user),
 ) -> Tenant:
     """Get the current tenant from the authenticated user.
-    
+
     Args:
         db: Database session
         current_user: Current authenticated user
-        
+
     Returns:
         Tenant: Current tenant
-        
+
     Raises:
         HTTPException: If tenant not found or inactive
     """
@@ -195,25 +197,25 @@ async def get_current_tenant(
     )
     result = await db.execute(stmt)
     tenant = result.scalar_one_or_none()
-    
+
     if not tenant:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Tenant not found or inactive",
         )
-    
+
     return tenant
 
 
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """Require user to have admin role.
-    
+
     Args:
         current_user: Current authenticated user
-        
+
     Returns:
         User: Current authenticated user with admin role
-        
+
     Raises:
         HTTPException: If user does not have admin role
     """
@@ -222,19 +224,19 @@ async def require_admin(current_user: User = Depends(get_current_user)) -> User:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions. Admin role required.",
         )
-    
+
     return current_user
 
 
 async def require_auditor(current_user: User = Depends(get_current_user)) -> User:
     """Require user to have admin or auditor role.
-    
+
     Args:
         current_user: Current authenticated user
-        
+
     Returns:
         User: Current authenticated user with admin or auditor role
-        
+
     Raises:
         HTTPException: If user does not have admin or auditor role
     """
@@ -243,7 +245,7 @@ async def require_auditor(current_user: User = Depends(get_current_user)) -> Use
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions. Admin or auditor role required.",
         )
-    
+
     return current_user
 
 
@@ -252,7 +254,7 @@ async def log_audit_action(
     action: AuditAction,
 ) -> None:
     """Log an audit action in the database.
-    
+
     Args:
         db: Database session
         action: Audit action to log
@@ -263,7 +265,7 @@ async def log_audit_action(
         f"AUDIT: {action.action} - User {action.user_id} - "
         f"Tenant {action.tenant_id} - {action.resource_type} {action.resource_id}"
     )
-    
+
     # Add to audit log table
     # from auditpulse_mvp.database.models import AuditLog
     # audit_log = AuditLog(
@@ -275,4 +277,4 @@ async def log_audit_action(
     #     details=action.details,
     # )
     # db.add(audit_log)
-    # await db.commit() 
+    # await db.commit()

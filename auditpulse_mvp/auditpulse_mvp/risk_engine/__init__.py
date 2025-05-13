@@ -11,13 +11,13 @@ from auditpulse_mvp.risk_engine.risk_engine import (
     RiskSensitivity,
     RiskScoringResult,
     get_risk_engine,
-    InvalidRiskConfigurationError
+    InvalidRiskConfigurationError,
 )
 
 from auditpulse_mvp.risk_engine.explanations import (
     RiskExplanationProvider,
     GPTExplanationProvider,
-    get_explanation_provider
+    get_explanation_provider,
 )
 
 # Define public API
@@ -29,9 +29,8 @@ __all__ = [
     "RiskScoringResult",
     "get_risk_engine",
     "InvalidRiskConfigurationError",
-    
     # Explanation Providers
     "RiskExplanationProvider",
     "GPTExplanationProvider",
     "get_explanation_provider",
-] 
+]

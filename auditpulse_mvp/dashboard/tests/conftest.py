@@ -2,6 +2,7 @@
 
 This module provides pytest fixtures for testing the dashboard.
 """
+
 import asyncio
 import os
 import sys
@@ -58,20 +59,22 @@ async def db_session(setup_database) -> AsyncGenerator[AsyncSession, None]:
 @pytest.fixture
 def mock_streamlit():
     """Mock Streamlit functions for testing."""
-    with patch("streamlit.session_state", {}) as mock_state, \
-         patch("streamlit.sidebar") as mock_sidebar, \
-         patch("streamlit.columns") as mock_columns, \
-         patch("streamlit.subheader") as mock_subheader, \
-         patch("streamlit.write") as mock_write, \
-         patch("streamlit.metric") as mock_metric, \
-         patch("streamlit.plotly_chart") as mock_plotly_chart, \
-         patch("streamlit.expander") as mock_expander, \
-         patch("streamlit.button") as mock_button, \
-         patch("streamlit.radio") as mock_radio, \
-         patch("streamlit.text_area") as mock_text_area, \
-         patch("streamlit.success") as mock_success, \
-         patch("streamlit.error") as mock_error, \
-         patch("streamlit.info") as mock_info:
+    with (
+        patch("streamlit.session_state", {}) as mock_state,
+        patch("streamlit.sidebar") as mock_sidebar,
+        patch("streamlit.columns") as mock_columns,
+        patch("streamlit.subheader") as mock_subheader,
+        patch("streamlit.write") as mock_write,
+        patch("streamlit.metric") as mock_metric,
+        patch("streamlit.plotly_chart") as mock_plotly_chart,
+        patch("streamlit.expander") as mock_expander,
+        patch("streamlit.button") as mock_button,
+        patch("streamlit.radio") as mock_radio,
+        patch("streamlit.text_area") as mock_text_area,
+        patch("streamlit.success") as mock_success,
+        patch("streamlit.error") as mock_error,
+        patch("streamlit.info") as mock_info,
+    ):
         yield {
             "state": mock_state,
             "sidebar": mock_sidebar,
@@ -87,4 +90,4 @@ def mock_streamlit():
             "success": mock_success,
             "error": mock_error,
             "info": mock_info,
-        } 
+        }

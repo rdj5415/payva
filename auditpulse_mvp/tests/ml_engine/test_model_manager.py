@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from auditpulse_mvp.ml_engine.model_manager import ModelManager
 from auditpulse_mvp.database.models import ModelVersion, ModelPerformance
 
+
 @pytest.fixture
 def mock_db_session():
     """Create a mock database session."""
@@ -16,16 +17,19 @@ def mock_db_session():
     session.refresh = AsyncMock()
     return session
 
+
 @pytest.fixture
 def mock_settings():
     """Create mock settings."""
     settings = MagicMock()
     return settings
 
+
 @pytest.fixture
 def model_manager(mock_db_session, mock_settings):
     """Create a model manager instance."""
     return ModelManager(db_session=mock_db_session, settings=mock_settings)
+
 
 @pytest.mark.asyncio
 async def test_create_version(model_manager, mock_db_session):
@@ -34,7 +38,7 @@ async def test_create_version(model_manager, mock_db_session):
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = None
     mock_db_session.execute.return_value = mock_result
-    
+
     # Create version
     version = await model_manager.create_version(
         model_type="test_model",
@@ -42,19 +46,20 @@ async def test_create_version(model_manager, mock_db_session):
         metadata={"accuracy": 0.95},
         is_active=True,
     )
-    
+
     # Verify version creation
     assert version.model_type == "test_model"
     assert version.version == "1.0.0"
     assert version.model_data == {"weights": [1, 2, 3]}
     assert version.metadata == {"accuracy": 0.95}
     assert version.is_active is True
-    
+
     # Verify database operations
     mock_db_session.add.assert_called_once()
     mock_db_session.commit.assert_called_once()
     mock_db_session.refresh.assert_called_once()
-    
+
+
 @pytest.mark.asyncio
 async def test_get_active_version(model_manager, mock_db_session):
     """Test getting active model version."""
@@ -66,19 +71,20 @@ async def test_get_active_version(model_manager, mock_db_session):
         metadata={},
         is_active=True,
     )
-    
+
     # Mock database query result
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = active_version
     mock_db_session.execute.return_value = mock_result
-    
+
     # Get active version
     version = await model_manager.get_active_version("test_model")
-    
+
     # Verify version
     assert version == active_version
     assert version.is_active is True
-    
+
+
 @pytest.mark.asyncio
 async def test_activate_version(model_manager, mock_db_session):
     """Test activating a model version."""
@@ -90,27 +96,28 @@ async def test_activate_version(model_manager, mock_db_session):
         metadata={},
         is_active=False,
     )
-    
+
     # Mock database query results
     mock_version_result = MagicMock()
     mock_version_result.scalar_one_or_none.return_value = version
-    
+
     mock_current_result = MagicMock()
     mock_current_result.scalar_one_or_none.return_value = None
-    
+
     mock_db_session.execute.side_effect = [mock_version_result, mock_current_result]
-    
+
     # Activate version
     activated = await model_manager.activate_version("test_model", "1.0.0")
-    
+
     # Verify activation
     assert activated.is_active is True
     assert activated.activated_at is not None
-    
+
     # Verify database operations
     assert mock_db_session.commit.call_count == 1
     assert mock_db_session.refresh.call_count == 1
-    
+
+
 @pytest.mark.asyncio
 async def test_record_performance(model_manager, mock_db_session):
     """Test recording model performance."""
@@ -122,7 +129,7 @@ async def test_record_performance(model_manager, mock_db_session):
         dataset_size=1000,
         evaluation_time=1.5,
     )
-    
+
     # Verify performance record
     assert performance.model_type == "test_model"
     assert performance.version == "1.0.0"
@@ -130,12 +137,13 @@ async def test_record_performance(model_manager, mock_db_session):
     assert performance.dataset_size == 1000
     assert performance.evaluation_time == 1.5
     assert performance.recorded_at is not None
-    
+
     # Verify database operations
     mock_db_session.add.assert_called_once()
     mock_db_session.commit.assert_called_once()
     mock_db_session.refresh.assert_called_once()
-    
+
+
 @pytest.mark.asyncio
 async def test_get_performance_history(model_manager, mock_db_session):
     """Test getting performance history."""
@@ -158,24 +166,25 @@ async def test_get_performance_history(model_manager, mock_db_session):
             recorded_at=datetime.now(),
         ),
     ]
-    
+
     # Mock database query result
     mock_result = MagicMock()
     mock_result.scalars.return_value = records
     mock_db_session.execute.return_value = mock_result
-    
+
     # Get performance history
     history = await model_manager.get_performance_history(
         model_type="test_model",
         version="1.0.0",
         limit=10,
     )
-    
+
     # Verify history
     assert len(history) == 2
     assert all(p.model_type == "test_model" for p in history)
     assert all(p.version == "1.0.0" for p in history)
-    
+
+
 @pytest.mark.asyncio
 async def test_get_performance_summary(model_manager, mock_db_session):
     """Test getting performance summary."""
@@ -184,11 +193,11 @@ async def test_get_performance_summary(model_manager, mock_db_session):
     mock_summary.avg_evaluation_time = 1.45
     mock_summary.avg_dataset_size = 1000.0
     mock_summary.evaluation_count = 2
-    
+
     # Mock database query results
     mock_summary_result = MagicMock()
     mock_summary_result.first.return_value = mock_summary
-    
+
     mock_history_result = MagicMock()
     mock_history_result.scalars.return_value = [
         ModelPerformance(
@@ -200,17 +209,17 @@ async def test_get_performance_summary(model_manager, mock_db_session):
             recorded_at=datetime.now(),
         )
     ]
-    
+
     mock_db_session.execute.side_effect = [mock_summary_result, mock_history_result]
-    
+
     # Get performance summary
     summary = await model_manager.get_performance_summary(
         model_type="test_model",
         version="1.0.0",
     )
-    
+
     # Verify summary
     assert summary["avg_evaluation_time"] == 1.45
     assert summary["avg_dataset_size"] == 1000.0
     assert summary["evaluation_count"] == 2
-    assert summary["latest_metrics"] == {"accuracy": 0.96} 
+    assert summary["latest_metrics"] == {"accuracy": 0.96}

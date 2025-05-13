@@ -2,6 +2,7 @@
 
 This module handles Plaid Link integration, data fetching, and normalization.
 """
+
 import datetime
 import logging
 import uuid
@@ -46,7 +47,9 @@ class PlaidClient:
         self,
         tenant_id: uuid.UUID,
         client_id: str = settings.PLAID_CLIENT_ID or "",
-        client_secret: str = settings.PLAID_SECRET.get_secret_value() if settings.PLAID_SECRET else "",
+        client_secret: str = (
+            settings.PLAID_SECRET.get_secret_value() if settings.PLAID_SECRET else ""
+        ),
         environment: str = settings.PLAID_ENVIRONMENT,
     ):
         """Initialize the Plaid client.
@@ -63,7 +66,7 @@ class PlaidClient:
         self.tenant_id = tenant_id
         self.client_id = client_id
         self.client_secret = client_secret
-        
+
         # Configure the Plaid API client
         configuration = plaid.Configuration(
             host=self._get_plaid_host(environment),
@@ -80,10 +83,10 @@ class PlaidClient:
 
     def _get_plaid_host(self, environment: str) -> str:
         """Get the Plaid API host URL based on the environment.
-        
+
         Args:
             environment: The Plaid environment.
-            
+
         Returns:
             str: The Plaid API host URL.
         """
@@ -102,14 +105,14 @@ class PlaidClient:
     )
     async def create_link_token(self, user_id: str, user_name: str) -> Dict[str, Any]:
         """Create a Plaid Link token for client-side authentication.
-        
+
         Args:
             user_id: The user ID.
             user_name: The user's name.
-            
+
         Returns:
             Dict[str, Any]: The Link token response.
-            
+
         Raises:
             HTTPException: If there's an error creating the Link token.
         """
@@ -152,13 +155,13 @@ class PlaidClient:
     )
     async def exchange_public_token(self, public_token: str) -> Dict[str, Any]:
         """Exchange a public token for an access token.
-        
+
         Args:
             public_token: The public token from Plaid Link.
-            
+
         Returns:
             Dict[str, Any]: The access token response.
-            
+
         Raises:
             HTTPException: If there's an error exchanging the token.
         """
@@ -167,22 +170,24 @@ class PlaidClient:
                 public_token=public_token
             )
             exchange_response = self.client.item_public_token_exchange(exchange_request)
-            
+
             self.access_token = exchange_response["access_token"]
             self.item_id = exchange_response["item_id"]
-            
+
             # Get item details to retrieve institution information
             item_request = ItemGetRequest(access_token=self.access_token)
             item_response = self.client.item_get(item_request)
-            
+
             # Get institution details
             institution_id = item_response["item"]["institution_id"]
             institution_request = InstitutionsGetByIdRequest(
                 institution_id=institution_id,
                 country_codes=[CountryCode("US")],
             )
-            institution_response = self.client.institutions_get_by_id(institution_request)
-            
+            institution_response = self.client.institutions_get_by_id(
+                institution_request
+            )
+
             return {
                 "access_token": self.access_token,
                 "item_id": self.item_id,
@@ -209,21 +214,21 @@ class PlaidClient:
         reraise=True,
     )
     async def fetch_transactions(
-        self, 
-        start_date: Optional[datetime.date] = None, 
+        self,
+        start_date: Optional[datetime.date] = None,
         end_date: Optional[datetime.date] = None,
         account_ids: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Fetch transactions from Plaid.
-        
+
         Args:
             start_date: The start date for fetching transactions.
             end_date: The end date for fetching transactions.
             account_ids: Optional list of account IDs to filter by.
-            
+
         Returns:
             Dict[str, Any]: The transactions response.
-            
+
         Raises:
             HTTPException: If there's an error fetching transactions.
         """
@@ -241,7 +246,7 @@ class PlaidClient:
             options = None
             if account_ids:
                 options = TransactionsGetRequestOptions(account_ids=account_ids)
-                
+
             # Create request
             request = TransactionsGetRequest(
                 access_token=self.access_token,
@@ -249,13 +254,13 @@ class PlaidClient:
                 end_date=end_date,
                 options=options,
             )
-            
-            # First call - get transactions 
+
+            # First call - get transactions
             response = self.client.transactions_get(request)
-            
+
             transactions = response["transactions"]
             total_transactions = response["total_transactions"]
-            
+
             # Pagination handling for large transaction sets
             while len(transactions) < total_transactions:
                 # Use the last transaction ID for pagination
@@ -263,21 +268,21 @@ class PlaidClient:
                     offset=len(transactions),
                     account_ids=account_ids if account_ids else None,
                 )
-                
+
                 paginated_request = TransactionsGetRequest(
                     access_token=self.access_token,
                     start_date=start_date,
                     end_date=end_date,
                     options=options_with_offset,
                 )
-                
+
                 paginated_response = self.client.transactions_get(paginated_request)
                 transactions.extend(paginated_response["transactions"])
-                
+
                 # Safety check to prevent infinite loops
                 if len(paginated_response["transactions"]) == 0:
                     break
-            
+
             # Build the response
             return {
                 "transactions": transactions,
@@ -300,23 +305,26 @@ class PlaidClient:
 
     async def refresh_transactions(self) -> Dict[str, str]:
         """Request Plaid to refresh transactions for the item.
-        
+
         This triggers Plaid to make a webhook notification when new transactions are available.
-        
+
         Returns:
             Dict[str, str]: The refresh status.
-            
+
         Raises:
             HTTPException: If there's an error refreshing transactions.
         """
         if not self.access_token:
             raise ValueError("Access token is missing")
-            
+
         try:
             request = TransactionsRefreshRequest(access_token=self.access_token)
             self.client.transactions_refresh(request)
-            
-            return {"status": "refresh_requested", "message": "Plaid will send a webhook when complete"}
+
+            return {
+                "status": "refresh_requested",
+                "message": "Plaid will send a webhook when complete",
+            }
         except plaid.ApiException as exc:
             logger.error(f"Error refreshing Plaid transactions: {exc}")
             raise HTTPException(
@@ -332,35 +340,35 @@ class PlaidClient:
 
     async def fire_webhook_sandbox(self, webhook_code: str) -> Dict[str, str]:
         """Fire a sandbox webhook for testing.
-        
+
         This is only available in the sandbox environment.
-        
+
         Args:
             webhook_code: The webhook code to fire.
-            
+
         Returns:
             Dict[str, str]: The webhook status.
-            
+
         Raises:
             HTTPException: If there's an error firing the webhook.
         """
         if not self.access_token:
             raise ValueError("Access token is missing")
-            
+
         if settings.PLAID_ENVIRONMENT != "sandbox":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Sandbox webhooks can only be fired in the sandbox environment",
             )
-            
+
         try:
             request = SandboxItemFireWebhookRequest(
                 access_token=self.access_token,
                 webhook_code=webhook_code,
             )
-            
+
             response = self.client.sandbox_item_fire_webhook(request)
-            
+
             return {
                 "status": "webhook_fired",
                 "webhook_fired": response["webhook_fired"],
@@ -384,7 +392,7 @@ class PlaidService:
 
     def __init__(self, db_session: AsyncSession = Depends(get_db_session)):
         """Initialize the Plaid service.
-        
+
         Args:
             db_session: The database session.
         """
@@ -392,13 +400,13 @@ class PlaidService:
 
     async def get_client_for_tenant(self, tenant_id: uuid.UUID) -> PlaidClient:
         """Get a Plaid client for the specified tenant.
-        
+
         Args:
             tenant_id: The tenant ID.
-            
+
         Returns:
             PlaidClient: The Plaid client.
-            
+
         Raises:
             HTTPException: If the tenant or Plaid settings are not found.
         """
@@ -421,57 +429,66 @@ class PlaidService:
             )
 
         plaid_settings = cast(Dict[str, Any], tenant.plaid_settings)
-        
+
         # Create and return a client with the tenant's settings
         client = PlaidClient(
             tenant_id=tenant_id,
             client_id=settings.PLAID_CLIENT_ID or "",
-            client_secret=settings.PLAID_SECRET.get_secret_value() if settings.PLAID_SECRET else "",
+            client_secret=(
+                settings.PLAID_SECRET.get_secret_value()
+                if settings.PLAID_SECRET
+                else ""
+            ),
             environment=settings.PLAID_ENVIRONMENT,
         )
-        
+
         # Set the tenant-specific access_token
         client.access_token = plaid_settings.get("access_token")
         client.item_id = plaid_settings.get("item_id")
-        
+
         return client
 
     async def sync_transactions(
-        self, 
-        tenant_id: uuid.UUID, 
-        start_date: Optional[datetime.date] = None, 
+        self,
+        tenant_id: uuid.UUID,
+        start_date: Optional[datetime.date] = None,
         end_date: Optional[datetime.date] = None,
         account_ids: Optional[List[str]] = None,
     ) -> Tuple[int, int, int]:
         """Sync transactions from Plaid.
-        
+
         Args:
             tenant_id: The tenant ID.
             start_date: The start date for fetching transactions.
             end_date: The end date for fetching transactions.
             account_ids: Optional list of account IDs to filter by.
-            
+
         Returns:
             Tuple[int, int, int]: A tuple of (fetched, created, updated) counts.
-            
+
         Raises:
             HTTPException: If there's an error syncing transactions.
         """
         client = await self.get_client_for_tenant(tenant_id)
-        
+
         try:
             # Fetch transactions from Plaid
-            plaid_data = await client.fetch_transactions(start_date, end_date, account_ids)
+            plaid_data = await client.fetch_transactions(
+                start_date, end_date, account_ids
+            )
             raw_transactions = plaid_data.get("transactions", [])
-            
+
             # Get account mappings for source_account_id
-            accounts_map = {account["account_id"]: account for account in plaid_data.get("accounts", [])}
-            
+            accounts_map = {
+                account["account_id"]: account
+                for account in plaid_data.get("accounts", [])
+            }
+
             # Process and normalize transactions
             created_count, updated_count = await self._process_transactions(
                 tenant_id, raw_transactions, accounts_map
             )
-            
+
             return len(raw_transactions), created_count, updated_count
         except Exception as exc:
             logger.error(f"Error syncing Plaid transactions: {exc}")
@@ -481,28 +498,28 @@ class PlaidService:
             )
 
     async def _process_transactions(
-        self, 
-        tenant_id: uuid.UUID, 
+        self,
+        tenant_id: uuid.UUID,
         raw_transactions: List[Dict[str, Any]],
         accounts_map: Dict[str, Dict[str, Any]],
     ) -> Tuple[int, int]:
         """Process and normalize Plaid transactions.
-        
+
         Args:
             tenant_id: The tenant ID.
             raw_transactions: The list of raw transactions from Plaid.
             accounts_map: A mapping of account IDs to account details.
-            
+
         Returns:
             Tuple[int, int]: A tuple of (created, updated) counts.
         """
         created_count = 0
         updated_count = 0
-        
+
         for raw_txn in raw_transactions:
             # Convert Plaid format to our normalized format
             normalized_txn = self._normalize_transaction(raw_txn, accounts_map)
-            
+
             # Check if the transaction already exists
             existing_txn_result = await self.db_session.execute(
                 select(Transaction).where(
@@ -512,11 +529,15 @@ class PlaidService:
                 )
             )
             existing_txn = existing_txn_result.scalar_one_or_none()
-            
+
             if existing_txn:
                 # Update existing transaction
                 for key, value in normalized_txn.items():
-                    if key != "transaction_id" and key != "source" and key != "tenant_id":
+                    if (
+                        key != "transaction_id"
+                        and key != "source"
+                        and key != "tenant_id"
+                    ):
                         setattr(existing_txn, key, value)
                 updated_count += 1
             else:
@@ -528,44 +549,44 @@ class PlaidService:
                 )
                 self.db_session.add(new_txn)
                 created_count += 1
-        
+
         # Commit all changes at once
         await self.db_session.commit()
-        
+
         return created_count, updated_count
 
     def _normalize_transaction(
-        self, 
-        raw_txn: Dict[str, Any], 
+        self,
+        raw_txn: Dict[str, Any],
         accounts_map: Dict[str, Dict[str, Any]],
     ) -> Dict[str, Any]:
         """Normalize a Plaid transaction to our data model.
-        
+
         Args:
             raw_txn: The raw transaction from Plaid.
             accounts_map: A mapping of account IDs to account details.
-            
+
         Returns:
             Dict[str, Any]: The normalized transaction data.
         """
         # Extract basic transaction information
         txn_id = raw_txn.get("transaction_id", "")
         account_id = raw_txn.get("account_id", "")
-        
+
         # Extract account information
         source_account_id = account_id
-        
+
         # Get additional account details if available
         account_detail = accounts_map.get(account_id, {})
         account_name = account_detail.get("name", "")
         if account_name:
             source_account_id = f"{account_id} ({account_name})"
-        
+
         # Extract transaction amount (Plaid returns this as a positive value for credits)
         amount = raw_txn.get("amount", 0.0)
         # Invert the sign for consistency with our model (expenses are positive)
         amount = -amount
-        
+
         # Extract transaction date
         transaction_date = datetime.datetime.now()
         txn_date = raw_txn.get("date")
@@ -574,7 +595,7 @@ class PlaidService:
                 transaction_date = datetime.datetime.strptime(txn_date, "%Y-%m-%d")
             except ValueError:
                 pass
-        
+
         # Extract posting date if available
         posting_date = None
         authorized_date = raw_txn.get("authorized_date")
@@ -583,27 +604,27 @@ class PlaidService:
                 posting_date = datetime.datetime.strptime(authorized_date, "%Y-%m-%d")
             except ValueError:
                 pass
-        
+
         # Extract description and merchant name
         description = raw_txn.get("name", "")
         merchant_name = raw_txn.get("merchant_name", "")
         if not merchant_name:
             # Use the description as fallback for merchant name
             merchant_name = description
-        
+
         # Extract category
         category = ""
         categories = raw_txn.get("category", [])
         if categories:
             # Use the most specific category (last in the list)
             category = categories[-1]
-        
+
         # Extract payment channel
         payment_channel = raw_txn.get("payment_channel", "")
         if payment_channel and payment_channel != "other":
             if not description.endswith(f"({payment_channel})"):
                 description = f"{description} ({payment_channel})"
-        
+
         # Build the normalized transaction
         return {
             "transaction_id": txn_id,
@@ -623,12 +644,12 @@ async def update_tenant_plaid_settings(
     db_session: AsyncSession, tenant_id: uuid.UUID, settings_data: Dict[str, Any]
 ) -> bool:
     """Update the Plaid settings for a tenant.
-    
+
     Args:
         db_session: The database session.
         tenant_id: The tenant ID.
         settings_data: The Plaid settings data.
-        
+
     Returns:
         bool: True if successful, False otherwise.
     """
@@ -638,11 +659,11 @@ async def update_tenant_plaid_settings(
             select(Tenant).where(Tenant.id == tenant_id)
         )
         tenant = tenant_result.scalar_one_or_none()
-        
+
         if not tenant:
             logger.error(f"Tenant {tenant_id} not found")
             return False
-        
+
         # Update the settings
         if tenant.plaid_settings:
             # Update existing settings
@@ -650,7 +671,7 @@ async def update_tenant_plaid_settings(
         else:
             # Create new settings
             tenant.plaid_settings = settings_data
-        
+
         # Commit the changes
         await db_session.commit()
         return True
@@ -665,11 +686,11 @@ async def handle_plaid_webhook(
     db_session: AsyncSession, webhook_data: Dict[str, Any]
 ) -> Dict[str, Any]:
     """Handle a Plaid webhook event.
-    
+
     Args:
         db_session: The database session.
         webhook_data: The webhook payload.
-        
+
     Returns:
         Dict[str, Any]: The response.
     """
@@ -678,64 +699,71 @@ async def handle_plaid_webhook(
         webhook_type = webhook_data.get("webhook_type")
         webhook_code = webhook_data.get("webhook_code")
         item_id = webhook_data.get("item_id")
-        
+
         if not item_id:
             logger.error("Missing item ID in Plaid webhook")
             return {"status": "error", "message": "Missing item ID"}
-        
+
         # Find the tenant with this item ID
         tenant_result = await db_session.execute(
-            select(Tenant).where(
-                Tenant.plaid_settings["item_id"].astext == item_id
-            )
+            select(Tenant).where(Tenant.plaid_settings["item_id"].astext == item_id)
         )
         tenant = tenant_result.scalar_one_or_none()
-        
+
         if not tenant:
             logger.error(f"No tenant found for Plaid item ID: {item_id}")
-            return {"status": "error", "message": f"No tenant found for item ID: {item_id}"}
-        
+            return {
+                "status": "error",
+                "message": f"No tenant found for item ID: {item_id}",
+            }
+
         # Process the webhook based on its type and code
         if webhook_type == "TRANSACTIONS":
             if webhook_code == "INITIAL_UPDATE":
                 logger.info(f"Initial update for Plaid item {item_id}")
                 # First transaction sync completed
                 return {"status": "acknowledged", "message": "Initial update received"}
-                
+
             elif webhook_code == "HISTORICAL_UPDATE":
                 logger.info(f"Historical update for Plaid item {item_id}")
                 # Historical transactions available
-                return {"status": "acknowledged", "message": "Historical update received"}
-                
+                return {
+                    "status": "acknowledged",
+                    "message": "Historical update received",
+                }
+
             elif webhook_code == "DEFAULT_UPDATE":
                 logger.info(f"Default update for Plaid item {item_id}")
                 # New transactions are available
-                
+
                 # Schedule a sync for recent transactions
                 service = PlaidService(db_session)
                 start_date = datetime.date.today() - datetime.timedelta(days=30)
                 end_date = datetime.date.today()
-                
+
                 await service.sync_transactions(
                     tenant.id,
                     start_date=start_date,
                     end_date=end_date,
                 )
-                
+
                 return {"status": "success", "message": "Transactions synced"}
-                
+
             elif webhook_code == "TRANSACTIONS_REMOVED":
                 logger.info(f"Transactions removed for Plaid item {item_id}")
                 # Transactions were removed
                 # TODO: Mark transactions as deleted in our database
-                return {"status": "acknowledged", "message": "Transactions removed event received"}
-        
+                return {
+                    "status": "acknowledged",
+                    "message": "Transactions removed event received",
+                }
+
         # Handle other webhook types (AUTH, ITEM, etc.)
         return {
-            "status": "acknowledged", 
-            "message": f"Webhook {webhook_type}:{webhook_code} received"
+            "status": "acknowledged",
+            "message": f"Webhook {webhook_type}:{webhook_code} received",
         }
-        
+
     except Exception as exc:
         logger.error(f"Error handling Plaid webhook: {exc}")
-        return {"status": "error", "message": str(exc)} 
+        return {"status": "error", "message": str(exc)}

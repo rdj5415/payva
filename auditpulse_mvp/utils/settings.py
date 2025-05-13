@@ -2,6 +2,7 @@
 
 This module defines and validates all application settings using Pydantic.
 """
+
 import os
 import secrets
 from typing import Literal, Optional, Union, List, Dict, Any
@@ -96,16 +97,16 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
-    
+
     # CORS settings
     BACKEND_CORS_ORIGINS: List[AnyUrl] = []
-    
+
     @validator("BACKEND_CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
         return v
-        
+
     # Database settings
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_USER: str = "postgres"
@@ -113,7 +114,7 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "auditpulse"
     POSTGRES_PORT: str = "5432"
     DATABASE_URL: Optional[PostgresDsn] = None
-    
+
     @validator("DATABASE_URL", pre=True)
     def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
         if isinstance(v, str):
@@ -126,11 +127,11 @@ class Settings(BaseSettings):
             port=values.get("POSTGRES_PORT"),
             path=f"/{values.get('POSTGRES_DB') or ''}",
         )
-        
+
     # Task settings
     TASK_RETRY_DELAY: int = 60  # 1 minute
     TASK_MAX_RETRIES: int = 3
-    
+
     # Notification settings
     # Email
     SMTP_TLS: bool = True
@@ -140,26 +141,26 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     EMAILS_FROM_EMAIL: str = ""
     EMAILS_FROM_NAME: str = "Bungii Notifications"
-    
+
     # Slack
     SLACK_WEBHOOK_URL: Optional[str] = None
-    
+
     # Twilio (SMS)
     TWILIO_FROM_NUMBER: Optional[str] = None
-    
+
     # Webhook
     WEBHOOK_TIMEOUT_SECONDS: int = 10
-    
+
     # Notification defaults
     DEFAULT_NOTIFICATION_CHANNEL: str = "email"
     NOTIFICATION_TASK_PRIORITY: str = "high"
-    
+
     # Auth
     AUTH_REQUIRED: bool = True
-    
+
     # Metrics
     METRICS_ENABLED: bool = True
-    
+
     # Rate limiting
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_TIMEFRAME: int = 60  # seconds
@@ -170,13 +171,13 @@ if os.environ.get("ENVIRONMENT") == "test":
     # For tests, allow SQLite
     class TestSettings(Settings):
         """Test settings with SQLite support."""
-        
+
         model_config = SettingsConfigDict(
             env_file=".env.test", env_file_encoding="utf-8", extra="ignore"
         )
         DATABASE_URL: AnyUrl
         DATABASE_TEST_URL: Optional[AnyUrl] = None
-    
+
     settings = TestSettings()
 else:
     # Normal settings for production/development
@@ -190,4 +191,4 @@ def get_settings() -> Settings:
     Returns:
         Settings: Application settings.
     """
-    return settings 
+    return settings

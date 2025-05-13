@@ -127,8 +127,7 @@ async def test_login_incorrect_password(test_client):
 async def test_read_users_me(test_client, normal_token):
     """Test getting current user information."""
     response = await test_client.get(
-        "/api/v1/users/me",
-        headers={"Authorization": f"Bearer {normal_token}"}
+        "/api/v1/users/me", headers={"Authorization": f"Bearer {normal_token}"}
     )
     assert response.status_code == 200
     data = response.json()
@@ -147,8 +146,7 @@ async def test_read_users_unauthorized(test_client):
 async def test_admin_access(test_client, admin_token):
     """Test admin access to admin-only endpoint."""
     response = await test_client.get(
-        "/api/v1/admin/users",
-        headers={"Authorization": f"Bearer {admin_token}"}
+        "/api/v1/admin/users", headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 200
 
@@ -157,8 +155,7 @@ async def test_admin_access(test_client, admin_token):
 async def test_admin_access_forbidden(test_client, normal_token):
     """Test non-admin access to admin-only endpoint."""
     response = await test_client.get(
-        "/api/v1/admin/users",
-        headers={"Authorization": f"Bearer {normal_token}"}
+        "/api/v1/admin/users", headers={"Authorization": f"Bearer {normal_token}"}
     )
     assert response.status_code == 403
 
@@ -172,13 +169,13 @@ async def test_create_transaction(test_client, normal_token):
         "date": "2023-01-01T12:00:00",
         "description": "Test Transaction",
         "category": "Test",
-        "account_id": "test-account-id"
+        "account_id": "test-account-id",
     }
-    
+
     response = await test_client.post(
         "/api/v1/transactions/",
         json=transaction_data,
-        headers={"Authorization": f"Bearer {normal_token}"}
+        headers={"Authorization": f"Bearer {normal_token}"},
     )
     assert response.status_code == 201
     data = response.json()
@@ -190,8 +187,7 @@ async def test_create_transaction(test_client, normal_token):
 async def test_get_transactions(test_client, normal_token):
     """Test getting transactions."""
     response = await test_client.get(
-        "/api/v1/transactions/",
-        headers={"Authorization": f"Bearer {normal_token}"}
+        "/api/v1/transactions/", headers={"Authorization": f"Bearer {normal_token}"}
     )
     assert response.status_code == 200
     data = response.json()
@@ -204,8 +200,7 @@ async def test_get_transactions(test_client, normal_token):
 async def test_get_anomalies(test_client, normal_token):
     """Test getting anomalies."""
     response = await test_client.get(
-        "/api/v1/anomalies/",
-        headers={"Authorization": f"Bearer {normal_token}"}
+        "/api/v1/anomalies/", headers={"Authorization": f"Bearer {normal_token}"}
     )
     assert response.status_code == 200
     data = response.json()
@@ -218,7 +213,7 @@ async def test_get_model_versions(test_client, admin_token):
     """Test getting model versions."""
     response = await test_client.get(
         "/api/v1/models/anomaly_detection/versions",
-        headers={"Authorization": f"Bearer {admin_token}"}
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == 200
     data = response.json()
@@ -250,35 +245,35 @@ async def test_full_transaction_flow(test_client, normal_token):
         "date": "2023-01-01T12:00:00",
         "description": "Suspicious Test Transaction",
         "category": "Test",
-        "account_id": "test-account-id"
+        "account_id": "test-account-id",
     }
-    
+
     create_response = await test_client.post(
         "/api/v1/transactions/",
         json=transaction_data,
-        headers={"Authorization": f"Bearer {normal_token}"}
+        headers={"Authorization": f"Bearer {normal_token}"},
     )
     assert create_response.status_code == 201
     created_transaction = create_response.json()
     transaction_id = created_transaction["id"]
-    
+
     # 2. Get the transaction
     get_response = await test_client.get(
         f"/api/v1/transactions/{transaction_id}",
-        headers={"Authorization": f"Bearer {normal_token}"}
+        headers={"Authorization": f"Bearer {normal_token}"},
     )
     assert get_response.status_code == 200
     get_data = get_response.json()
     assert get_data["id"] == transaction_id
-    
+
     # 3. Check anomalies
     anomalies_response = await test_client.get(
         "/api/v1/anomalies/?limit=10",
-        headers={"Authorization": f"Bearer {normal_token}"}
+        headers={"Authorization": f"Bearer {normal_token}"},
     )
     assert anomalies_response.status_code == 200
     anomalies_data = anomalies_response.json()
-    
+
     # The transaction might be detected as an anomaly (depends on implementation)
     # In a real test, we would wait for the anomaly detection process to complete
     # For this example, we just check that the endpoint returns successfully
@@ -293,22 +288,22 @@ async def test_notification_templates(test_client, admin_token, test_db):
         "template_id": "test_template",
         "subject": "Test Notification",
         "body": "Hello {{name}}, this is a test notification.",
-        "placeholders": ["name"]
+        "placeholders": ["name"],
     }
-    
+
     create_response = await test_client.post(
         "/api/v1/notifications/templates/",
         json=template_data,
-        headers={"Authorization": f"Bearer {admin_token}"}
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert create_response.status_code == 201
     created_template = create_response.json()
     assert created_template["template_id"] == "test_template"
-    
+
     # 2. Get the template
     get_response = await test_client.get(
         "/api/v1/notifications/templates/test_template",
-        headers={"Authorization": f"Bearer {admin_token}"}
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert get_response.status_code == 200
     get_data = get_response.json()
@@ -326,28 +321,28 @@ async def test_send_notification(test_client, admin_token, normal_token, test_db
             "user_id": normal_token,  # Use normal user as recipient
             "email": TEST_USER_EMAIL,
         },
-        "template_data": {
-            "name": "Test User"
-        },
+        "template_data": {"name": "Test User"},
         "priority": "HIGH",
-        "channels": ["email"]
+        "channels": ["email"],
     }
-    
+
     # Mock the actual email sending
-    with patch("auditpulse_mvp.notifications.channels.email.EmailNotifier.send") as mock_send:
+    with patch(
+        "auditpulse_mvp.notifications.channels.email.EmailNotifier.send"
+    ) as mock_send:
         mock_send.return_value = True
-        
+
         response = await test_client.post(
             "/api/v1/notifications/send",
             json=notification_request,
-            headers={"Authorization": f"Bearer {admin_token}"}
+            headers={"Authorization": f"Bearer {admin_token}"},
         )
-        
+
         assert response.status_code == 202
         data = response.json()
         assert "notification_id" in data
         assert data["status"] == "scheduled"
-        
+
         # Verify that the email sender was called
         mock_send.assert_called_once()
 
@@ -360,10 +355,10 @@ async def test_plaid_integration(test_client, normal_token):
     mock_plaid_client = MagicMock()
     mock_link_token_response = {
         "link_token": "link-sandbox-token",
-        "expiration": (datetime.now() + timedelta(hours=24)).isoformat()
+        "expiration": (datetime.now() + timedelta(hours=24)).isoformat(),
     }
     mock_plaid_client.link_token_create.return_value = mock_link_token_response
-    
+
     # Mock account data
     mock_account_data = {
         "accounts": [
@@ -376,43 +371,46 @@ async def test_plaid_integration(test_client, normal_token):
                 "balances": {
                     "available": 1000,
                     "current": 1050,
-                    "iso_currency_code": "USD"
-                }
+                    "iso_currency_code": "USD",
+                },
             }
         ],
-        "item": {
-            "item_id": "test-item-id",
-            "institution_id": "test-institution"
-        },
-        "request_id": "test-request-id"
+        "item": {"item_id": "test-item-id", "institution_id": "test-institution"},
+        "request_id": "test-request-id",
     }
-    mock_plaid_client.exchange_public_token.return_value = {"access_token": "test-access-token", "item_id": "test-item-id"}
+    mock_plaid_client.exchange_public_token.return_value = {
+        "access_token": "test-access-token",
+        "item_id": "test-item-id",
+    }
     mock_plaid_client.accounts_get.return_value = mock_account_data
-    
-    with patch("auditpulse_mvp.utils.plaid_client.get_plaid_client", return_value=mock_plaid_client):
+
+    with patch(
+        "auditpulse_mvp.utils.plaid_client.get_plaid_client",
+        return_value=mock_plaid_client,
+    ):
         # 1. Create link token
         link_response = await test_client.post(
             "/api/v1/plaid/link/token/create",
-            headers={"Authorization": f"Bearer {normal_token}"}
+            headers={"Authorization": f"Bearer {normal_token}"},
         )
         assert link_response.status_code == 200
         link_data = link_response.json()
         assert "link_token" in link_data
-        
+
         # 2. Exchange public token
         exchange_response = await test_client.post(
             "/api/v1/plaid/item/public_token/exchange",
             json={"public_token": "public-sandbox-token"},
-            headers={"Authorization": f"Bearer {normal_token}"}
+            headers={"Authorization": f"Bearer {normal_token}"},
         )
         assert exchange_response.status_code == 200
         exchange_data = exchange_response.json()
         assert exchange_data["success"] is True
-        
+
         # 3. Get accounts
         accounts_response = await test_client.get(
             "/api/v1/plaid/accounts",
-            headers={"Authorization": f"Bearer {normal_token}"}
+            headers={"Authorization": f"Bearer {normal_token}"},
         )
         assert accounts_response.status_code == 200
         accounts_data = accounts_response.json()
@@ -433,33 +431,36 @@ async def test_model_validation(test_client, admin_token):
                 "date": "2023-01-01T12:00:00",
                 "description": "Unusual Transaction",
                 "category": "Test",
-                "account_id": "test-account-id"
+                "account_id": "test-account-id",
             },
             {
                 "amount": 50.00,
                 "date": "2023-01-02T12:00:00",
                 "description": "Normal Transaction",
                 "category": "Test",
-                "account_id": "test-account-id"
-            }
+                "account_id": "test-account-id",
+            },
         ],
         "ground_truth": [
             {"is_anomaly": True, "anomaly_type": "unusual_amount"},
-            {"is_anomaly": False, "anomaly_type": None}
-        ]
+            {"is_anomaly": False, "anomaly_type": None},
+        ],
     }
-    
+
     validation_response = await test_client.post(
         "/api/v1/models/validate",
         json=validation_data,
-        headers={"Authorization": f"Bearer {admin_token}"}
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
-    
+
     assert validation_response.status_code == 200
     validation_result = validation_response.json()
     assert "metrics" in validation_result
     assert "validation_success" in validation_result
-    assert all(metric in validation_result["metrics"] for metric in ["accuracy", "precision", "recall", "f1_score"])
+    assert all(
+        metric in validation_result["metrics"]
+        for metric in ["accuracy", "precision", "recall", "f1_score"]
+    )
 
 
 # System Health Tests
@@ -468,7 +469,7 @@ async def test_detailed_health_check(test_client, admin_token):
     """Test the detailed health check endpoint (admin-only)."""
     response = await test_client.get(
         "/api/v1/admin/system-health",
-        headers={"Authorization": f"Bearer {admin_token}"}
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == 200
     data = response.json()
@@ -485,14 +486,14 @@ async def test_user_role_permissions(test_client, normal_token, admin_token):
     user_response = await test_client.post(
         "/api/v1/models/anomaly_detection/versions",
         json={"version": "test-version", "description": "Test model"},
-        headers={"Authorization": f"Bearer {normal_token}"}
+        headers={"Authorization": f"Bearer {normal_token}"},
     )
     assert user_response.status_code == 403  # Should be forbidden
-    
+
     # Test admin user accessing model management
     admin_response = await test_client.post(
         "/api/v1/models/anomaly_detection/versions",
         json={"version": "test-version", "description": "Test model"},
-        headers={"Authorization": f"Bearer {admin_token}"}
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert admin_response.status_code in [200, 201]  # Should succeed 
+    assert admin_response.status_code in [200, 201]  # Should succeed

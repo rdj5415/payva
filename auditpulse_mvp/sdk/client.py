@@ -2,6 +2,7 @@
 
 This module provides a client for interacting with the AuditPulse AI API.
 """
+
 from typing import Any, Dict, List, Optional, Union
 import aiohttp
 import asyncio
@@ -86,7 +87,9 @@ class AuditPulseClient:
             AuditPulseError: If the API request fails
         """
         if not self._session:
-            raise RuntimeError("Client session not initialized. Use async with context.")
+            raise RuntimeError(
+                "Client session not initialized. Use async with context."
+            )
 
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         headers = self._get_headers()
@@ -328,4 +331,4 @@ class AuditPulseError(Exception):
         self.message = message
         self.details = details
         self.status_code = status_code
-        super().__init__(f"{code}: {message}") 
+        super().__init__(f"{code}: {message}")

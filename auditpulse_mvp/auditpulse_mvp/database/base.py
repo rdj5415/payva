@@ -2,6 +2,7 @@
 
 This module provides the base declarative class, async engine, and session management.
 """
+
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import (
@@ -44,4 +45,4 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         try:
             yield session
         finally:
-            await session.close() 
+            await session.close()
