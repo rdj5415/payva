@@ -215,3 +215,207 @@ User.financial_transactions = relationship(
     "FinancialTransaction", back_populates="user"
 )
 # ... existing code ...
+
+
+class AnomalyType(str, Enum):
+    """Anomaly type enumeration."""
+    TRANSACTION = "transaction"
+    ACCOUNT = "account"
+    BEHAVIORAL = "behavioral"
+    SYSTEM = "system"
+    ML_BASED = "ml_based"
+    RULES_BASED = "rules_based"
+    STATISTICAL_OUTLIER = "statistical_outlier"
+    RULE_BASED = "rule_based"
+    ML_DETECTED = "ml_detected"
+
+class FeedbackType(str, Enum):
+    """Feedback type enumeration."""
+    TRUE_POSITIVE = "true_positive"
+    FALSE_POSITIVE = "false_positive"
+    FALSE_NEGATIVE = "false_negative"
+    TRUE_NEGATIVE = "true_negative"
+    INCONCLUSIVE = "inconclusive"
+    IGNORE = "ignore"
+    NEEDS_INVESTIGATION = "needs_investigation"
+
+class RiskLevel(str, Enum):
+    """Risk level enumeration."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+class AnomalyStatus(str, Enum):
+    """Anomaly status enumeration."""
+    NEW = "new"
+    IN_REVIEW = "in_review"
+    RESOLVED = "resolved"
+    IGNORED = "ignored"
+
+class AnomalyRiskLevel(str, Enum):
+    """Anomaly risk level enumeration."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+class NotificationChannel(str, Enum):
+    """Notification channel enumeration."""
+    EMAIL = "email"
+    SMS = "sms"
+    SLACK = "slack"
+    WEBHOOK = "webhook"
+
+class NotificationStatus(str, Enum):
+    """Notification status enumeration."""
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+    DELIVERED = "delivered"
+
+class UserRole(str, Enum):
+    """User role enumeration."""
+    ADMIN = "admin"
+    USER = "user"
+    VIEWER = "viewer"
+
+class DataSource(str, Enum):
+    """Data source enumeration."""
+    PLAID = "plaid"
+    QUICKBOOKS = "quickbooks"
+    MANUAL = "manual"
+
+class Anomaly(Base):
+    """Anomaly detection result."""
+    __tablename__ = "anomalies"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    transaction_id = Column(PGUUID(as_uuid=True), ForeignKey("financial_transactions.id"), nullable=True)
+    anomaly_type = Column(SQLEnum(AnomalyType), nullable=False)
+    status = Column(SQLEnum(AnomalyStatus), nullable=False, default=AnomalyStatus.NEW)
+    risk_level = Column(SQLEnum(AnomalyRiskLevel), nullable=False)
+    score = Column(Float, nullable=False)
+    explanation = Column(String, nullable=True)
+    metadata = Column(JSON, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    resolved_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    tenant = relationship("Tenant", back_populates="anomalies")
+    transaction = relationship("FinancialTransaction", back_populates="anomalies")
+
+class Tenant(Base):
+    """Tenant information."""
+    __tablename__ = "tenants"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    name = Column(String, nullable=False)
+    api_key = Column(String, nullable=False, unique=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    users = relationship("User", back_populates="tenant")
+    anomalies = relationship("Anomaly", back_populates="tenant")
+    configurations = relationship("TenantConfiguration", back_populates="tenant")
+
+class TenantConfiguration(Base):
+    """Tenant configuration settings."""
+    __tablename__ = "tenant_configurations"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    key = Column(String, nullable=False)
+    value = Column(JSON, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    tenant = relationship("Tenant", back_populates="configurations")
+
+class Notification(Base):
+    """Notification record."""
+    __tablename__ = "notifications"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    user_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    channel = Column(SQLEnum(NotificationChannel), nullable=False)
+    status = Column(SQLEnum(NotificationStatus), nullable=False, default=NotificationStatus.PENDING)
+    subject = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    metadata = Column(JSON, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    sent_at = Column(DateTime, nullable=True)
+    delivered_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    tenant = relationship("Tenant")
+    user = relationship("User")
+
+class ErrorLog(Base):
+    """System error log."""
+    __tablename__ = "error_logs"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True)
+    error_type = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    stack_trace = Column(String, nullable=True)
+    metadata = Column(JSON, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    tenant = relationship("Tenant")
+
+class SystemMetric(Base):
+    """System performance metric."""
+    __tablename__ = "system_metrics"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    metric_name = Column(String, nullable=False)
+    metric_value = Column(Float, nullable=False)
+    metadata = Column(JSON, nullable=True)
+    recorded_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+class Transaction(Base):
+    """Top-level transaction model for business logic."""
+    __tablename__ = "transactions"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    account_id = Column(PGUUID(as_uuid=True), ForeignKey("financial_accounts.id"), nullable=False)
+    amount = Column(Float, nullable=False)
+    date = Column(DateTime, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    merchant_name = Column(String, nullable=True)
+    pending = Column(Boolean, nullable=False, default=False)
+    category = Column(JSON, nullable=True)
+    category_id = Column(String, nullable=True)
+    transaction_type = Column(String, nullable=True)
+    payment_channel = Column(String, nullable=True)
+    location = Column(JSON, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    last_updated = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    user = relationship("User", back_populates="transactions")
+    account = relationship("FinancialAccount", back_populates="transactions")
+    anomalies = relationship("Anomaly", back_populates="transaction")
+
+    def __repr__(self):
+        return f"<Transaction {self.name} ({self.id})>"
+
+class SensitivityConfig(Base):
+    __tablename__ = "sensitivity_configs"
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    config = Column(JSON, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    tenant = relationship("Tenant")
