@@ -192,7 +192,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
             return str(forwarded_for.split(",")[0].strip())
-        return str(request.client.host) if request.client and request.client.host else "unknown"
+        return (
+            str(request.client.host)
+            if request.client and request.client.host
+            else "unknown"
+        )
 
     def _cleanup_old_requests(self):
         """
@@ -473,7 +477,11 @@ class IPAllowListMiddleware(BaseHTTPMiddleware):
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
             return str(forwarded_for.split(",")[0].strip())
-        return str(request.client.host) if request.client and request.client.host else "unknown"
+        return (
+            str(request.client.host)
+            if request.client and request.client.host
+            else "unknown"
+        )
 
     def _is_ip_allowed(self, ip: str) -> bool:
         """Check if the IP is in the allowlist."""
@@ -623,7 +631,11 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
             return str(forwarded_for.split(",")[0].strip())
-        return str(request.client.host) if request.client and request.client.host else "unknown"
+        return (
+            str(request.client.host)
+            if request.client and request.client.host
+            else "unknown"
+        )
 
     def _is_sensitive_endpoint(self, path: str) -> bool:
         """Check if the path is a sensitive endpoint."""
