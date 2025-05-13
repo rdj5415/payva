@@ -186,19 +186,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Returns:
             A unique identifier for the client
         """
-        # Try to get an API key from the authorization header
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
-            return f"token:{auth_header[7:]}"  # Return the token as the ID
-
-        # Fall back to IP address
+            return str(f"token:{auth_header[7:]}")
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
-            # Get the original client's IP if behind a proxy
-            return forwarded_for.split(",")[0].strip()
-
-        # Use the client's direct IP
-        return request.client.host if request.client else "unknown"
+            return str(forwarded_for.split(",")[0].strip())
+        return str(request.client.host) if request.client and request.client.host else "unknown"
 
     def _cleanup_old_requests(self):
         """
@@ -478,8 +472,8 @@ class IPAllowListMiddleware(BaseHTTPMiddleware):
         """Get the client's IP address."""
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
-            return forwarded_for.split(",")[0].strip()
-        return request.client.host if request.client else "unknown"
+            return str(forwarded_for.split(",")[0].strip())
+        return str(request.client.host) if request.client and request.client.host else "unknown"
 
     def _is_ip_allowed(self, ip: str) -> bool:
         """Check if the IP is in the allowlist."""
@@ -628,8 +622,8 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
         """Get the client's IP address."""
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
-            return forwarded_for.split(",")[0].strip()
-        return request.client.host if request.client else "unknown"
+            return str(forwarded_for.split(",")[0].strip())
+        return str(request.client.host) if request.client and request.client.host else "unknown"
 
     def _is_sensitive_endpoint(self, path: str) -> bool:
         """Check if the path is a sensitive endpoint."""
