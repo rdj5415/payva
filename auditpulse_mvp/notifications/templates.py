@@ -14,6 +14,9 @@ from auditpulse_mvp.utils.settings import Settings
 
 logger = logging.getLogger(__name__)
 
+# Add proper type annotation for template_cache
+template_cache: Dict[str, Dict[str, Any]] = {}
+
 
 class TemplateManager:
     """Manager for notification templates."""
@@ -25,7 +28,6 @@ class TemplateManager:
             settings: Application settings
         """
         self.settings = settings
-        self.template_cache = {}
         self.jinja_env = Environment(
             autoescape=select_autoescape(["html", "xml"]),
             trim_blocks=True,
@@ -44,8 +46,10 @@ class TemplateManager:
         Returns:
             Optional[Dict[str, Any]]: Template data if found
         """
-        if not refresh and template_id in self.template_cache:
-            return self.template_cache[template_id]
+        global template_cache
+
+        if not refresh and template_id in template_cache:
+            return template_cache[template_id]
 
         async with get_db() as db:
             template = (
@@ -73,7 +77,7 @@ class TemplateManager:
                 "version": template.version,
             }
 
-            self.template_cache[template_id] = template_data
+            template_cache[template_id] = template_data
             return template_data
 
     async def render_template(
@@ -210,7 +214,7 @@ class TemplateManager:
                 "version": template.version,
             }
 
-            self.template_cache[template_id] = template_data
+            template_cache[template_id] = template_data
             return template_data
 
     async def list_templates(self) -> List[Dict[str, Any]]:
@@ -260,7 +264,7 @@ class TemplateManager:
             await db.commit()
 
             # Remove from cache
-            if template_id in self.template_cache:
-                del self.template_cache[template_id]
+            if template_id in template_cache:
+                del template_cache[template_id]
 
             return True

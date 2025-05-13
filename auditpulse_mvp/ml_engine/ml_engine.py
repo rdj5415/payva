@@ -438,7 +438,7 @@ class MLEngine:
 
         results: Dict[str, Any] = {
             "success": [],  # List to store successful training results
-            "error": [],    # List to store error results
+            "error": [],  # List to store error results
             "total": len(tenant_ids),
         }
 

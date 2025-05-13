@@ -515,7 +515,9 @@ class SensitivityConfig(Base):
     tenant_id: Mapped[UUID] = mapped_column(
         PGUUID(), ForeignKey("tenants.id"), nullable=False
     )
-    anomaly_type: Mapped[AnomalyType] = mapped_column(SQLEnum(AnomalyType), nullable=False)
+    anomaly_type: Mapped[AnomalyType] = mapped_column(
+        SQLEnum(AnomalyType), nullable=False
+    )
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
@@ -547,7 +549,9 @@ class Anomaly(Base):
     transaction_id: Mapped[Optional[UUID]] = mapped_column(
         PGUUID(), ForeignKey("transactions.id"), nullable=True
     )
-    anomaly_type: Mapped[AnomalyType] = mapped_column(SQLEnum(AnomalyType), nullable=False)
+    anomaly_type: Mapped[AnomalyType] = mapped_column(
+        SQLEnum(AnomalyType), nullable=False
+    )
     status: Mapped[AnomalyStatus] = mapped_column(
         SQLEnum(AnomalyStatus), nullable=False, default=AnomalyStatus.NEW
     )

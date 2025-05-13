@@ -259,10 +259,10 @@ class RulesEngine:
 
     async def get_anomaly_type(self, transaction: Transaction) -> Optional[AnomalyType]:
         """Determine anomaly type based on rule results.
-        
+
         Args:
             transaction: Transaction to evaluate
-            
+
         Returns:
             The AnomalyType if a rule is triggered, None otherwise
         """
@@ -275,22 +275,22 @@ class RulesEngine:
                 return cast(AnomalyType, AnomalyType.UNAPPROVED_VENDOR)
             elif rule_type == "statistical_outlier":
                 return cast(AnomalyType, AnomalyType.UNUSUAL_AMOUNT)
-        
+
         # Explicitly return None if no rules are triggered
         return None
 
     async def score(self, transaction: Transaction) -> float:
         """Calculate an overall risk score for a transaction.
-        
+
         Args:
             transaction: Transaction to evaluate
-            
+
         Returns:
             A float risk score between 0.0 and 1.0
         """
         result = await self.evaluate(transaction)
         score = result.get("score", 0.0)
-        
+
         # Ensure we always return a float
         try:
             return float(score)

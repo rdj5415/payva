@@ -7,20 +7,19 @@ including session creation, dependency injection, and context management.
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 from auditpulse_mvp.utils.settings import settings
 
 # Create database engine
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    str(settings.DATABASE_URL),  # Convert URL to string to ensure compatibility
     echo=settings.ENVIRONMENT == "development",
     future=True,
 )
 
-# Create session factory
-AsyncSessionLocal = sessionmaker(
+# Create session factory using async_sessionmaker
+AsyncSessionLocal = async_sessionmaker(
     engine,
     class_=AsyncSession,
     expire_on_commit=False,
